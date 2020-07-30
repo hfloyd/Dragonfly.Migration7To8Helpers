@@ -60,7 +60,7 @@
 
         public string GetAppPluginsPath(bool ReturnMapped = false)
         {
-            var path = ConfigFileName;
+            var path = AppPluginsPath;
 
             if (ReturnMapped)
             {

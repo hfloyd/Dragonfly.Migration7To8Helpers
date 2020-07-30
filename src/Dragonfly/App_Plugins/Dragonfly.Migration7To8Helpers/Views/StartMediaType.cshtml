@@ -1,0 +1,179 @@
+@using System.Web.Mvc.Html
+@using Dragonfly.Migration7To8Helpers
+@using Dragonfly.Migration7To8Helpers.Models
+@using Dragonfly.NetModels;
+@using Dragonfly.NetHelpers
+@using Newtonsoft.Json
+@using Umbraco.Core.PropertyEditors
+@using Umbraco.Web.PropertyEditors
+
+@inherits UmbracoViewPage<StatusMessage>
+
+@{
+    var status = Model;
+
+    var SpecialMessage = Dragonfly.UmbracoHelpers.Mvc.GetSafeViewDataString(ViewData, "SpecialMessage");
+    var SpecialMessageClass = Dragonfly.UmbracoHelpers.Mvc.GetSafeViewDataString(ViewData, "SpecialMessageClass");
+    var SelectedMediaType = Dragonfly.UmbracoHelpers.Mvc.GetSafeViewData(ViewData, "SelectedMediaType") as IMediaType;
+    var AllCompositions = Dragonfly.UmbracoHelpers.Mvc.GetSafeViewData(ViewData, "AllCompositions") as IEnumerable<IContentTypeComposition>;
+    var RelatedProperties = Dragonfly.UmbracoHelpers.Mvc.GetSafeViewData(ViewData, "RelatedProperties") as IEnumerable<DocTypeProperty>;
+    var MediaNodesOfType = Dragonfly.UmbracoHelpers.Mvc.GetSafeViewData(ViewData, "MediaNodesOfType") as IEnumerable<IMedia>;
+
+    var pvSS = ViewHelpers.GetViewsPath() + "Partials/StylesScripts.cshtml";
+    var pvStatus = ViewHelpers.GetViewsPath() + "Partials/StatusMessage.cshtml";
+    var pvFilesList = ViewHelpers.GetViewsPath() + "Partials/FilesList.cshtml";
+
+    var urlBackofficeMain = string.Format("/umbraco#/settings/mediaTypes/edit/{0}", SelectedMediaType.Id);
+    var allCompIds = AllCompositions.Select(n => n.Id);
+    var isComp = allCompIds.Contains(SelectedMediaType.Id);
+
+   // var urlPropToProp = string.Format("/Umbraco/backoffice/Api/MigrationHelperApi/TransferPropertyToPropertySetup?DocTypeId={0}", SelectedDocType.Id);
+
+    var ncTypes = ViewHelpers.GetNestedContentDataTypes(SelectedMediaType.Alias);
+
+    //Column Widths for Cards
+    var col1Class = "col-sm-3";
+    var col2Class = "col-sm-9";
+    }
+<!DOCTYPE html>
+<html>
+<head>
+    @Html.Partial(pvSS, "styles")
+</head>
+<body>
+    <div class="container">
+
+        <div class="d-inline-flex p-2" style="padding: .5em 0;">
+            <a class="btn btn-sm btn-primary mr-2" href="/Umbraco/backoffice/Api/MigrationHelperApi/Start">Back to Start</a>
+            @*<a class="btn btn-sm btn-info mr-2" href="@baseUrl">Remove All Filters</a>*@
+            @*<a class="btn btn-sm btn-success mr-2" href="xx">XX</a>*@
+        </div>
+
+        <h1>Dragonfly Migration 7 to 8 Helpers</h1>
+        @if (!status.Success)
+        {
+            @Html.Partial(pvStatus, status)
+        }
+        else
+        {
+            if (SpecialMessage != "")
+            {
+                <div class="p-3 mb-2 @SpecialMessageClass text-white">
+                    @Html.Raw(SpecialMessage)
+                </div>
+            }
+        }
+
+        <h2>Edit Data By Media Type</h2>
+
+        <div class="card card-default">
+            <h5 class="card-header">@SelectedMediaType.Name (@SelectedMediaType.Alias)</h5>
+            <div class="card-body">
+                <dl class="row">
+                    <dt class="@col1Class">Is an Element Type?</dt>
+                    <dd class="@col2Class">@SelectedMediaType.IsElement</dd>
+                </dl>
+                <dl class="row">
+                    <dt class="@col1Class">Is a Composition?</dt>
+                    <dd class="@col2Class">@isComp</dd>
+                </dl>
+                <dl class="row">
+                    <dt class="@col1Class">Uses Compositions</dt>
+                    <dd class="@col2Class">
+                        @{ var comps = SelectedMediaType.ContentTypeComposition; }
+                        @if (comps.Any())
+                        {
+                            <ul>
+                                @foreach (var comp in comps)
+                                {
+                                    var url = string.Format("/Umbraco/backoffice/Api/MigrationHelperApi/StartMediaType?MediaTypeId={0}", comp.Id.ToString());
+                                    <li><a href="@url" target="_blank">@comp.Name (@comp.Alias)</a></li>
+                                }
+                            </ul>
+                        }
+                        else
+                        {<text>None</text>}
+                    </dd>
+                </dl>
+                <dl class="row">
+                    <dt class="@col1Class"># of Media Nodes</dt>
+                    <dd class="@col2Class">@MediaNodesOfType.Count()</dd>
+                </dl>
+                @if (ncTypes.Any())
+                {
+                    <dl class="row">
+                        <dt class="@col1Class">Nested Content DataTypes Using this MediaType</dt>
+                        <dd class="@col2Class">
+                            <ul>
+                                @foreach (var type in ncTypes)
+                                {
+                                    var url = string.Format("/Umbraco/backoffice/Api/MigrationHelperApi/StartDataType?DataTypeId={0}", type.Id.ToString());
+                                    <li><a href="@url" target="_blank">@type.Name (@type.EditorAlias)</a></li>
+                                }
+                            </ul>
+                        </dd>
+                    </dl>
+                }
+                @*<dl class="row">
+                        <dt class="@col1Class">Configuration JSON</dt>
+                        <dd class="@col2Class">@JsonConvert.SerializeObject(SelectedDataType.Configuration)</dd>
+                    </dl>*@
+                <a class="btn btn-sm btn-success mr-2" href="@urlBackofficeMain" target="_blank">Edit this MediaType in the Back-office</a>
+              @*  <a class="btn btn-sm btn-success mr-2" href="@urlPropToProp" target="_blank">Transfer Data between properties on this Doctype</a>*@
+
+            </div>
+
+        </div>
+
+        <h3 class="mt-2">Drill-down: Properties</h3>
+        @if (RelatedProperties != null)
+        {
+            var typeGroups = new GroupingCollection<DocTypeProperty>(RelatedProperties);
+            typeGroups.GroupItems(n => n.DocTypeAlias);
+
+            <ul>
+                @foreach (var type in typeGroups.Groups)
+                {
+                    var typeAlias = type.GroupName["Key"].ToString();
+                    var typeDetails = Services.MediaTypeService.Get(typeAlias);
+                    //var urlReplace = string.Format("/Umbraco/backoffice/Api/MigrationHelperApi/SetupReplaceInData?DocTypeAlias={0}&DataTypeId={1}", docTypeAlias, SelectedDataType.Id);
+                    var urlBackoffice = string.Format("/umbraco#/settings/mediaTypes/edit/{0}", typeDetails.Id.ToString());
+
+                    <li>
+                        <b>@typeDetails.Name (@typeAlias)</b>
+                        <br />
+                        @*  <a class="btn btn-sm btn-success mr-2" href="@urlReplace" target="_blank">Fix Data in this DocType/DataType</a>
+                            <a class="btn btn-sm btn-success mr-2" href="@urlBackoffice" target="_blank">Edit this DocType in the Back-office</a>*@
+
+                        @*<p class="mt-1"><i>Properties matching DataType:</i></p>*@
+                        <ul>
+                            @foreach (var prop in type.Collection.OrderBy(n => n.Property.Alias))
+                            {
+                                var thisDataType = Services.DataTypeService.GetDataType(prop.Property.DataTypeId);
+                                <li>
+                                    @prop.Property.Name (@prop.Property.Alias)
+                                    <br />DataType: @thisDataType.Name
+                                    <br />
+                                    <!-- <a class="btn btn-sm btn-success mr-2 btn-disabled" href="#">Fix Data in this Property</a>-->
+                                </li>
+                            }
+                        </ul>
+                    </li>
+                }
+            </ul>
+        }
+
+        @*<div class="d-inline-flex p-2" style="padding: .5em 0;">
+                <a class="btn btn-sm btn-success mr-2" href="/Umbraco/backoffice/Api/SiteTesterApi/TestAllNodesAndSave">Test All Nodes Now</a>
+            </div>
+            <div class="d-inline-flex p-2" style="padding: .5em 0;">
+                <a class="btn btn-sm btn-success mr-2" href="/Umbraco/backoffice/Api/SiteTesterApi/TestDescendantNodesAndSave?StartNode=0">Test Subset of Nodes...</a>
+            </div>*@
+
+
+    </div>
+
+    @*@Html.Partial(pvSS, "scripts")*@
+</body>
+</html>
+

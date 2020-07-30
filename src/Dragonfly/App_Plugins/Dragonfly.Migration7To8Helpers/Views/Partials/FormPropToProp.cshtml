@@ -1,0 +1,43 @@
+@using Dragonfly.Migration7To8Helpers
+@using Dragonfly.Migration7To8Helpers.Models
+
+@inherits UmbracoViewPage<FormInputsPropertyToProperty>
+
+@{
+    var propAliases = Model.AvailablePropertiesCSV.Split(',');
+    var fromPropOptions = new SelectList(propAliases);
+}
+
+<div class="card card-default mt-2">
+    <h3 class="card-header">Find & Replace Options</h3>
+    <div class="card-body">
+
+        <form action="/Umbraco/backoffice/Api/MigrationHelperApi/TransferPropertyToProperty" method="post">
+            @Html.HiddenFor(f => f.ContentNodeIdsCsv)
+            @Html.HiddenFor(f => f.DocTypeAlias)
+            @Html.HiddenFor(f=> f.AvailablePropertiesCSV)
+            <div class="form-group">
+                <label for="PropFrom">Property to copy data From</label>
+                @Html.DropDownListFor(f => f.PropertyAliasFrom, fromPropOptions, "", new { @class = "form-control" })
+                @*<small id="PropFromHelp" class="form-text text-muted">???</small>*@
+            </div>
+            <div class="form-group">
+                <label for="PropTo">Property to copy data To</label>
+                @Html.DropDownListFor(f => f.PropertyAliasTo, fromPropOptions, "", new { @class = "form-control" })
+                @*<small id="PropToHelp" class="form-text text-muted">???</small>*@
+            </div>
+            <div class="form-group">
+                <label for="PreviewOnly">Preview Only?</label>
+                @Html.CheckBoxFor(f => f.PreviewOnly)
+                <small id="PreviewOnlyHelp" class="form-text text-muted">Just show what would be affected, without saving the changes to Content.</small>
+            </div>
+            <div class="form-group">
+                <label for="OverWrite">Overwrite Existing Data?</label>
+                @Html.CheckBoxFor(f => f.OverwriteExistingData)
+                <small id="OverWriteHelp" class="form-text text-muted">If there is already a value in the 'To' property, overwrite it with data from the 'From' property?</small>
+            </div>
+            <button class="btn btn-primary" value="Submit" type="Submit">Do it!</button>
+        </form>
+
+    </div>
+</div>
