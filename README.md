@@ -13,7 +13,7 @@ Via NuGet:
 
 To be installed into a v8 site right after database upgrade to v8, when data needs to be fixed for compatibility.
 
-***DISCLAIMER*: This tool gives you a lot of power to alter your property data directly. Be responsible. Make database backups in case something goes horribly wrong. Use the "Preview Only" option to check the results before actually updating the data, etc. **
+** *DISCLAIMER*: This tool gives you a lot of power to alter your property data directly. Be responsible. Make database backups in case something goes horribly wrong. Use the "Preview Only" option to check the results before actually updating the data, etc. **
 
 **If you screw up your website, it is your own fault.**
 
