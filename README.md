@@ -1,7 +1,7 @@
 # Dragonfly.Migration7To8Helpers #
 Data cleaning/conversion tools for Umbraco 7 to Umbraco 8 migrations created by [Heather Floyd](https://www.HeatherFloyd.com).
 
-## Installation ##
+# Installation #
 Via NuGet:
 [![Nuget Downloads](https://buildstats.info/nuget/Dragonfly.Migration7To8Helpers)](https://www.nuget.org/packages/Dragonfly.Migration7To8Helpers/)
 
@@ -9,50 +9,44 @@ Via NuGet:
 
 
 
-## Description ##
+# Description #
 
 To be installed into a v8 site right after database upgrade to v8, when data needs to be fixed for compatibility.
 
-** *DISCLAIMER*: This tool gives you a lot of power to alter your property data directly. Be responsible. Make database backups in case something goes horribly wrong. Use the "Preview Only" option to check the results before actually updating the data, etc. **
+**DISCLAIMER: This tool gives you a lot of power to alter your property data directly. Be responsible. Make database backups in case something goes horribly wrong. Use the "Preview Only" option to check the results before actually updating the data, etc.**
 
 **If you screw up your website, it is your own fault.**
 
-## Usage ##
+# Usage #
 
 After Installing, log-in to the Umbraco back-office, then visit:
 
 http://YOURSITE.COM/Umbraco/backoffice/Api/MigrationHelperApi/Start
 
-## Features ##
+# Features #
 
-### General Visibility ###
+## General Visibility ##
 
 You can view lists of Doctypes, DataTypes, and PropertyEditors, and see what other items are referencing them. Drill-down and view raw property data.
 
-### Data Conversion Tools ###
+## Data Conversion Tools ##
 
-#### Property-To-Property ####
-
-
-#### Find/Replace in PropertyData ####
+### Find/Replace in PropertyData ###
 Allows you to bulk alter a node's property's raw data directly.
 
-**Simple Text-to-Text** - An exact replacement of the entered text inside the property data
+- **Simple Text-to-Text** - An exact replacement of the entered text inside the property data
+- **Replace Integer Ids with UDIs** - To update Node IDs with UDIs inside of data (for example - in the case of Nested Content or other JSON)
+- **Custom Migration** - use your own custom migration code (implementing interface ICustomFindReplaceDataMigrator)
 
-**Replace Integer Ids with UDIs** - To update Node IDs with UDIs inside of data (for example - in the case of Nested Content or other JSON), select this option and use the following syntax for your text options:
-- Find: Use '~ID~' to indicate the Integer (ex: "imageProp": "~ID~")
-- Replacement: Use '~UDI~' to indicate where the UDI should be placed (ex: "imageProp": "~UDI~") 
+### Property-To-Property ###
+*Documentation TBD*
 
-**Custom Migration** - use your own custom migration code (implementing interface ICustomFindReplaceDataMigrator)
-
-
-
-### Custom Data Migrators : ICustomFindReplaceDataMigrator ###
+## Custom Data Migrators : ICustomFindReplaceDataMigrator ##
 You can create your own custom migrators to update data inside a property. This is useful when you are dealing with changing data formats inside of NestedContent or other more complex data.
 
 Just add a class to your project that implements interface ICustomFindReplaceDataMigrator. The two methods are simple to work with.
 
-####IsValidForData####
+### IsValidForData ###
 
      bool IsValidForData(int NodeId, string ContentTypeAlias,  PropertyType PropType, object OriginalData);
 
@@ -88,7 +82,7 @@ Here you can add whatever tests are needed to ensure that your migrator is only 
 
 Your migrator will only get called if the original data in the node/property is not NULL. If your function returns "FALSE", the data will NOT be changed for that node/property. 
 
-####ConvertOriginalData####
+### ConvertOriginalData ###
     
      object ConvertOriginalData(object OriginalData,out string ConversionErrorMsg);
 
@@ -105,6 +99,6 @@ See the ['~Custom Migrator Samples' folder](https://github.com/hfloyd/Dragonfly.
 
 
 
-## Resources ##
+# Resources #
 
 GitHub Repository: [https://github.com/hfloyd/Dragonfly.Migration7To8Helpers](https://github.com/hfloyd/Dragonfly.Migration7To8Helpers)
