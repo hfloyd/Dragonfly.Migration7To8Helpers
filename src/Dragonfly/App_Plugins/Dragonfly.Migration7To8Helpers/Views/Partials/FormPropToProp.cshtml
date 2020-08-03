@@ -4,7 +4,7 @@
 @inherits UmbracoViewPage<FormInputsPropertyToProperty>
 
 @{
-    var propAliases = Model.AvailablePropertiesCSV.Split(',');
+    var propAliases = Model.AvailablePropertiesCSV.Split(',').ToList().OrderBy(n=> n).ToList();
     var fromPropOptions = new SelectList(propAliases);
 }
 

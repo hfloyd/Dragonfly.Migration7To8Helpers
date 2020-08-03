@@ -13,9 +13,10 @@
     <PackageProjectUrl>https://github.com/hfloyd/Dragonfly.Migration7To8Helpers</PackageProjectUrl>
     <RepositoryUrl>https://github.com/hfloyd/Dragonfly.Migration7To8Helpers</RepositoryUrl>
     <PackageId>Dragonfly.Migration7To8Helpers</PackageId>
- 	<Version>0.1.0</Version>
+ 	<Version>0.1.1</Version>
     <AssemblyName>Dragonfly.Migration7To8Helpers</AssemblyName>
     <PackageLicenseFile>LICENSE.md</PackageLicenseFile>
+    <AssemblyVersion>0.1.1.0</AssemblyVersion>
   </PropertyGroup>
   <ItemGroup>
     <Compile Remove="~Custom Migrator Samples\**" />

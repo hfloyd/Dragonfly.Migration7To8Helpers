@@ -360,7 +360,31 @@
                                 result.PropertyToData = originalToData;
                             }
                         }
-                        else //TODO: Support other datatypes - int, datetime, etc.
+                        else if (toPropDbType == ValueStorageType.Integer)
+                        {
+                            var stringToData = originalToData != null ? originalToData.ToString() : null;
+                            if (string.IsNullOrEmpty(stringToData) || FormInputs.OverwriteExistingData)
+                            {
+                                int intFrom;
+                                var fromIsInt = Int32.TryParse(fromPropData.ToString(), out intFrom);
+
+                                if (fromIsInt)
+                                {
+                                    result.PropertyToData = intFrom;
+                                    result.ValidToTransfer = true;
+                                }
+                                else
+                                {
+                                    result.DataFormatIsNotValidForTransfer = true;
+                                    result.PropertyToData = originalToData;
+                                }
+                            }
+                            else
+                            {
+                                result.PropertyToData = originalToData;
+                            }
+                        }
+                        else //TODO: Support other datatypes - decimal, datetime, etc.
                         {
                             result.DataFormatIsNotValidForTransfer = true;
                             result.PropertyToData = originalToData;
@@ -1132,14 +1156,14 @@
             {
                 //var dtCompsCount = docType.ContentTypeComposition.Count();
 
-                //Props in No Group
+                //Props in No Group (tab)
                 foreach (var propType in docType.NoGroupPropertyTypes)
                 {
                     var dtProp = new DocTypeProperty();
                     dtProp.DocTypeAlias = docType.Alias;
                     dtProp.GroupName = "";
                     dtProp.Property = propType;
-
+                    dtProp.CompositionDocTypeAlias = "";
                     props.Add(dtProp);
                 }
 
@@ -1152,6 +1176,7 @@
                         dtProp.DocTypeAlias = docType.Alias;
                         dtProp.GroupName = propGroup.Name;
                         dtProp.Property = propType;
+                        dtProp.CompositionDocTypeAlias = "";
 
                         props.Add(dtProp);
                     }

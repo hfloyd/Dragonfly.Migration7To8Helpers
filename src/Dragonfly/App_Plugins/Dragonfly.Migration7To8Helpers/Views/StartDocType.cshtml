@@ -137,28 +137,44 @@
                     var docTypeAlias = docType.GroupName["Key"].ToString();
                     var docTypeDetails = Services.ContentTypeService.Get(docTypeAlias);
                     var urlBackoffice = string.Format("/umbraco#/settings/documentTypes/edit/{0}", docTypeDetails.Id.ToString());
+                    var propGroups = new GroupingCollection<DocTypeProperty>(docType.Collection);
+                    propGroups.GroupItems(n => n.GroupName);
 
                     <li>
-                        <b>@docTypeDetails.Name (@docTypeAlias)</b>
+                        <h4>@docTypeDetails.Name (@docTypeAlias)</h4>
                         <br />
                         @*   <a class="btn btn-sm btn-success mr-2" href="@urlBackoffice" target="_blank">Edit this DocType in the Back-office</a>
 
                             @*<p class="mt-1"><i>Properties matching DataType:</i></p>*@
                         <ul>
-                            @foreach (var prop in docType.Collection.OrderBy(n => n.Property.Alias))
+                            @foreach (var propGroup in propGroups.Groups)
                             {
-                                var thisDataType = Services.DataTypeService.GetDataType(prop.Property.DataTypeId);
-                                var urlReplace = string.Format("/Umbraco/backoffice/Api/MigrationHelperApi/SetupReplaceInData?DocTypeAlias={0}&PropertyAlias={1}", docTypeAlias, prop.Property.Alias);
+                                var groupName = @propGroup.GroupName["Key"].ToString();
 
                                 <li>
-                                    @prop.Property.Name (@prop.Property.Alias)
-                                    <br />DataType: @thisDataType.Name
-                                    <br />
-                                    <a class="btn btn-sm btn-success mr-2" href="@urlReplace" target="_blank">Fix Data in this DocType/Property</a>
+                                    <h5>@groupName</h5>
+                                <ul>
+                                    @foreach (var prop in propGroup.Collection.OrderBy(n => n.Property.Alias))
+                                    {
+                                        var thisDataType = Services.DataTypeService.GetDataType(prop.Property.DataTypeId);
+                                        var urlReplace = string.Format("/Umbraco/backoffice/Api/MigrationHelperApi/SetupReplaceInData?DocTypeAlias={0}&PropertyAlias={1}", docTypeAlias, prop.Property.Alias);
 
-                                    <!-- <a class="btn btn-sm btn-success mr-2 btn-disabled" href="#">Fix Data in this Property</a>-->
-                                </li>
-                            }
+                                    <li style="line-height: 1.15em;">
+                                        <b>@prop.Property.Name (@prop.Property.Alias)</b>
+                                        @if (prop.CompositionDocTypeAlias != "")
+                                        {
+                                            <span class="badge badge-secondary">@prop.CompositionDocTypeAlias</span>
+                                        }
+                                        &nbsp;DataType: @thisDataType.Name
+                                        &nbsp;
+                                        <a class="btn btn-sm btn-success mr-2" href="@urlReplace" target="_blank">Fix Data in this DocType/Property</a>
+
+                                        <!-- <a class="btn btn-sm btn-success mr-2 btn-disabled" href="#">Fix Data in this Property</a>-->
+                                    </li>
+                                    }
+                                </ul>
+                            </li>
+                        }
                         </ul>
                     </li>
                 }
