@@ -100,7 +100,7 @@
         /// </summary>
         /// <param name="MigratorType"></param>
         /// <returns></returns>
-        internal static IEnumerable<string> GetAllFindReplaceClassNames(Enums.CustomMigratorTypes MigratorType)
+        internal static IEnumerable<string> GetAllMigratorClassNames(Enums.CustomMigratorTypes MigratorType)
         {
             var finalList = new List<string>();
             var systemType = Enums.GetCustomMigratorType(MigratorType);

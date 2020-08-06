@@ -54,6 +54,7 @@
             <li><a href="#DataTypes">Edit Data By DataType</a></li>
             <li><a href="#DocTypes">Edit Data By DocType</a></li>
             <li><a href="#MediaTypes">Edit Data By MediaType</a></li>
+            <li><a href="#LegacyData">Store Legacy Data for all Node Types</a></li>
         </ul>
 
         @if (AllPropertyEditorTypes != null)
@@ -63,7 +64,7 @@
                 @foreach (var editor in AllPropertyEditorTypes.OrderBy(n => n.Name))
                 {
                     var url = string.Format("/Umbraco/backoffice/Api/MigrationHelperApi/StartPropertyEditorType?PropertyEditorAlias={0}", editor.Alias);
-                <li><a href="@url">@editor.Name</a> (@editor.Alias)</li>
+                    <li><a href="@url">@editor.Name</a> (@editor.Alias)</li>
                 }
             </ol>
         }
@@ -89,7 +90,7 @@
                         @foreach (var dt in group.Collection.OrderBy(n => n.Name))
                         {
                             var url = string.Format("/Umbraco/backoffice/Api/MigrationHelperApi/StartDataType?DataTypeId={0}", dt.Id.ToString());
-                        <li><a href="@url" target="_blank">@dt.Name</a> (@dt.EditorAlias)</li>
+                            <li><a href="@url" target="_blank">@dt.Name</a> (@dt.EditorAlias)</li>
                         }
                     </ol>
                 </p>
@@ -124,20 +125,20 @@
                             var isComp = allCompIds.Contains(doc.Id);
                             var compInfo = isComp ? " <span class=\"badge badge-dark\">Is Composition</span>" : "";
                             var url = string.Format("/Umbraco/backoffice/Api/MigrationHelperApi/StartDocType?DocTypeId={0}", doc.Id.ToString());
-                        <li>
-                            <a href="@url" target="_blank">@doc.Name</a> (@doc.Alias) @Html.Raw(compInfo)
-                            <span tooltip="# of Content Nodes" class="badge badge-pill @contentBadgeColor">@qtyContent</span>
-                            @if (comps.Any())
-                            {
-                                <span>Uses Compositions:</span>
-                                foreach (var comp in comps)
+                            <li>
+                                <a href="@url" target="_blank">@doc.Name</a> (@doc.Alias) @Html.Raw(compInfo)
+                                <span tooltip="# of Content Nodes" class="badge badge-pill @contentBadgeColor">@qtyContent</span>
+                                @if (comps.Any())
                                 {
-                                    var urlComp = string.Format("/Umbraco/backoffice/Api/MigrationHelperApi/StartDocType?DocTypeId={0}", comp.Id.ToString());
-                                    <a href="@urlComp" target="_blank"><span class="badge badge-secondary">@comp.Name (@comp.Alias)</span></a>
-                                }
+                                    <span>Uses Compositions:</span>
+                                    foreach (var comp in comps)
+                                    {
+                                        var urlComp = string.Format("/Umbraco/backoffice/Api/MigrationHelperApi/StartDocType?DocTypeId={0}", comp.Id.ToString());
+                                        <a href="@urlComp" target="_blank"><span class="badge badge-secondary">@comp.Name (@comp.Alias)</span></a>
+                                    }
 
-                            }
-                        </li>
+                                }
+                            </li>
                         }
                     </ol>
                 </p>
@@ -172,30 +173,38 @@
                             var isComp = allCompIds.Contains(doc.Id);
                             var compInfo = isComp ? " <span class=\"badge badge-dark\">Is Composition</span>" : "";
                             var url = string.Format("/Umbraco/backoffice/Api/MigrationHelperApi/StartMediaType?MediaTypeId={0}", doc.Id.ToString());
-                        <li>
-                            <a href="@url" target="_blank">@doc.Name</a> (@doc.Alias) @Html.Raw(compInfo)
-                            <span tooltip="# of Media Nodes" class="badge badge-pill @contentBadgeColor">@qtyNodes</span>
-                            @if (comps.Any())
-                            {
-                                <span>Uses Compositions:</span>
-                                foreach (var comp in comps)
+                            <li>
+                                <a href="@url" target="_blank">@doc.Name</a> (@doc.Alias) @Html.Raw(compInfo)
+                                <span tooltip="# of Media Nodes" class="badge badge-pill @contentBadgeColor">@qtyNodes</span>
+                                @if (comps.Any())
                                 {
-                                    var urlComp = string.Format("/Umbraco/backoffice/Api/MigrationHelperApi/StartMediaType?MediaTypeId={0}", comp.Id.ToString());
-                                    <a href="@urlComp" target="_blank"><span class="badge badge-secondary">@comp.Name (@comp.Alias)</span></a>
-                                }
+                                    <span>Uses Compositions:</span>
+                                    foreach (var comp in comps)
+                                    {
+                                        var urlComp = string.Format("/Umbraco/backoffice/Api/MigrationHelperApi/StartMediaType?MediaTypeId={0}", comp.Id.ToString());
+                                        <a href="@urlComp" target="_blank"><span class="badge badge-secondary">@comp.Name (@comp.Alias)</span></a>
+                                    }
 
-                            }
-                        </li>
+                                }
+                            </li>
                         }
                     </ol>
                 </p>
             }
         }
 
-        @*<div class="d-inline-flex p-2" style="padding: .5em 0;">
-            <a class="btn btn-sm btn-success mr-2" href="/Umbraco/backoffice/Api/xx/TestAllNodesAndSave">Test All Nodes Now</a>
-        </div>
+        <h3 id="LegacyData">Store Legacy Data for all Node Types</h3>
+        <p>It is a good idea to store old INT Ids on Content and Media nodes for later reference. You should do this on your original migrated local DB copy - prior to transferring to any staging/live environments (incl. Umbraco Cloud)</p>
+        <ol>
+            <li>First, create a Content Composition and a Media Composition to hold Legacy Data. Add at least a "Label(int)" property to each to store the old (v7) Node Id.</li>
+            <li>Next, Add that Composition to all applicable Content Nodes/Media nodes (other compositions and Nested content types don't need it)</li>
+            <li>Finally, click here to copy the current Node IDs into the Legacy properties.</li>
+        </ol>
+
         <div class="d-inline-flex p-2" style="padding: .5em 0;">
+            <a class="btn btn-sm btn-success mr-2" href="/Umbraco/backoffice/Api/MigrationHelperApi/SetupStoreLegacyData">Store Legacy Data</a>
+        </div>
+        @* <div class="d-inline-flex p-2" style="padding: .5em 0;">
             <a class="btn btn-sm btn-success mr-2" href="/Umbraco/backoffice/Api/xx/TestDescendantNodesAndSave?StartNode=0">Test Subset of Nodes...</a>
         </div>*@
 

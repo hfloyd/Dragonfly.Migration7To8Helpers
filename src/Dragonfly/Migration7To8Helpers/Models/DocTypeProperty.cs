@@ -7,8 +7,7 @@
     using System.Threading.Tasks;
     using Umbraco.Core.Models;
 
-    public
-        class DocTypeProperty
+    public class DocTypeProperty
     {
         public string DocTypeAlias { get; set; }
         public string CompositionDocTypeAlias { get; set; }

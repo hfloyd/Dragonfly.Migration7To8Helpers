@@ -38,6 +38,9 @@
         mode = "Display";
     }
 
+    var customMigClass = FormInputs.CustomMigrationClass;
+    var typeDescription = !string.IsNullOrEmpty(customMigClass) ? FormInputs.PropToPropTypeOption.ToString() + " : " + customMigClass : FormInputs.PropToPropTypeOption.ToString();
+
 }
 <!DOCTYPE html>
 <html>
@@ -85,6 +88,10 @@
                 <dl class="row">
                     <dt class="@col1Class">To Property Alias</dt>
                     <dd class="@col2Class">@FormInputs.PropertyAliasTo</dd>
+                </dl>
+                <dl class="row">
+                    <dt class="@col1Class">Type</dt>
+                    <dd class="@col2Class">@typeDescription</dd>
                 </dl>
                 <dl class="row">
                     <dt class="@col1Class">Overwrite Existing Data?</dt>
@@ -140,6 +147,7 @@
                             <th>From Property Value</th>
                             <th>Valid?</th>
                             <th>To Property Value</th>
+                            <th>Status</th>
                         </tr>
                     </thead>
                     <tbody>
@@ -151,15 +159,16 @@
                             counter++;
                             var rowClass = result.ContentUpdated == true ? "table-success" : "";
 
-                            <tr class="@rowClass">
-                                <td>@counter</td>
-                                <td><a href="@urlBackoffice" target="_blank">@node.Id</a></td>
-                                <td>@node.Name</td>
-                                <td>@node.Published</td>
-                                <td>@result.PropertyFromData</td>
-                                <td>@result.ValidToTransfer</td>
-                                <td>@result.PropertyToData</td>
-                            </tr>
+                        <tr class="@rowClass">
+                            <td>@counter</td>
+                            <td><a href="@urlBackoffice" target="_blank">@node.Id</a></td>
+                            <td>@node.Name</td>
+                            <td>@node.Published</td>
+                            <td>@result.PropertyFromData</td>
+                            <td>@result.ValidToTransfer</td>
+                            <td>@result.PropertyToData</td>
+                            <td>@result.Status</td>
+                        </tr>
                         }
 
                     </tbody>

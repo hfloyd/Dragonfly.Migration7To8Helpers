@@ -19,9 +19,9 @@
             @Html.HiddenFor(f => f.PropertyAliasesCsv)
             <div class="form-group">
                 <label for="TypeOption">Type</label>
-                <div class="container">
-                    <div class="col col-md-6">@Html.DropDownListFor(f => f.FindReplaceTypeOption, frTypeOptions, new { @class = "form-control" })</div>
-                    <div class="col col-md-6 ml-2">@Html.DropDownListFor(f => f.CustomMigrationClass, frClassOptions, new { @class = "form-control" })</div>
+                <div class="d-inline-flex p-3" style="padding: .5em 0;">
+                    @Html.DropDownListFor(f => f.FindReplaceTypeOption, frTypeOptions, new { @class = "form-control mr-2" })
+                    @Html.DropDownListFor(f => f.CustomMigrationClass, frClassOptions, new { @class = "form-control mr-2" }) 
                 </div>
                 <small id="TypeOptionHelp" class="form-text text-muted">
                     The type of Replacement you want to make:

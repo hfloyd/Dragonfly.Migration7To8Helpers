@@ -2,7 +2,7 @@
 @using Dragonfly.Migration7To8Helpers
 @using Dragonfly.Migration7To8Helpers.Models
 @using Dragonfly.NetModels;
-@using Newtonsoft.Json
+@using Umbraco.Core.Models
 
 
 @inherits Umbraco.Web.Mvc.UmbracoViewPage<StatusMessage>
@@ -72,7 +72,22 @@
             <div class="card-body">
                 <dl class="row">
                     <dt class="@col1Class">Document Type</dt>
-                    <dd class="@col2Class">@SelectedDocType.Name (@SelectedDocType.Alias)</dd>
+                    <dd class="@col2Class">
+                        @if (SelectedDocType != null)
+                        {
+                            <text> @SelectedDocType.Name (@SelectedDocType.Alias)</text>
+                        }
+                        else
+                        {
+                            <b>All with Property:</b>
+                            <ul>
+                                @foreach (var prop in AffectedProperties)
+                                {
+                                    <li>@prop.DocTypeAlias [@prop.Property.Name (@prop.Property.Alias)]</li>
+                                }
+                            </ul>
+                        }
+                    </dd>
                 </dl>
                 @if (SelectedProperty != null)
                 {
@@ -82,16 +97,16 @@
                     </dl>
                 }
                 <dl class="row">
-                        <dt class="@col1Class">DataType</dt>
-                        <dd class="@col2Class">@SelectedDataType.Name (@SelectedDataType.EditorAlias)</dd>
-                    </dl>
-                
+                    <dt class="@col1Class">DataType</dt>
+                    <dd class="@col2Class">@SelectedDataType.Name (@SelectedDataType.EditorAlias)</dd>
+                </dl>
+
                 <dl class="row">
                     <dt class="@col1Class">Number of Affected Nodes</dt>
                     <dd class="@col2Class">@AffectedContentNodes.Count()</dd>
                 </dl>
 
-                @if (SelectedDocType.IsElement)
+                @if (SelectedDocType != null && SelectedDocType.IsElement)
                 {
                     var otherDataTypes = ViewHelpers.GetNestedContentDataTypes(SelectedDocType.Alias);
                     <p>

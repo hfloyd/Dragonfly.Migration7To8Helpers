@@ -4,18 +4,38 @@
 @inherits UmbracoViewPage<FormInputsPropertyToProperty>
 
 @{
+    var typesDict = Enums.PropToPropTypesWithDisplayText();
+    var frTypeOptions = Enums.PropToPropTypesSelectList();
+
+    var frClassOptions = ViewHelpers.CustomPropToPropMigratorsAllClassesSelectList("", "-- SELECT CUSTOM MIGRATOR HERE --", "(No Custom Migrators Available)");
+
     var propAliases = Model.AvailablePropertiesCSV.Split(',').ToList().OrderBy(n=> n).ToList();
     var fromPropOptions = new SelectList(propAliases);
 }
 
 <div class="card card-default mt-2">
-    <h3 class="card-header">Find & Replace Options</h3>
+    <h3 class="card-header">Property-to-Property Options</h3>
     <div class="card-body">
 
         <form action="/Umbraco/backoffice/Api/MigrationHelperApi/TransferPropertyToProperty" method="post">
             @Html.HiddenFor(f => f.ContentNodeIdsCsv)
             @Html.HiddenFor(f => f.DocTypeAlias)
             @Html.HiddenFor(f=> f.AvailablePropertiesCSV)
+            <div class="form-group">
+                <label for="TypeOption">Type</label>
+                <div class="d-inline-flex p-2" style="padding: .5em 0;">
+                    @Html.DropDownListFor(f => f.PropToPropTypeOption, frTypeOptions, new { @class = "form-control mr-2" })
+                    @Html.DropDownListFor(f => f.CustomMigrationClass, frClassOptions, new { @class = "form-control mr-2" })
+                </div>
+                <small id="TypeOptionHelp" class="form-text text-muted">
+                    The type of Replacement you want to make:
+                    <ul>
+                        <li><b>Direct Copy</b> - A copy from one property to the other</li>
+                        <li><b>Transform Integer Ids To UDIs</b> - The 'From' Property would be of an INT type and that will be converted to a UDIs for the 'To Property</li>
+                        <li><b>Custom Migration</b> - Use custom migration code (implementing interface ICustomPropToPropDataMigrator)</li>
+                    </ul>
+                </small>
+            </div>
             <div class="form-group">
                 <label for="PropFrom">Property to copy data From</label>
                 @Html.DropDownListFor(f => f.PropertyAliasFrom, fromPropOptions, "", new { @class = "form-control" })

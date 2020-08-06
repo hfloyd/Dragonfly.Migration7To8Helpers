@@ -29,7 +29,6 @@
 
         private Config _config;
 
-
         #region  Public Properties
 
         private List<IContent> _allContent = new List<IContent>();
@@ -219,6 +218,38 @@
 
             return comps.DistinctBy(n => n.Id);
         }
+
+        public IEnumerable<CompositionsWithTypes> GetAllCompositionsWithTypes()
+        {
+            var comps = new List<CompositionsWithTypes>();
+
+            //Content
+            var docTypes = AllDocTypes;
+            foreach (var type in docTypes)
+            {
+                var compInfo = new CompositionsWithTypes();
+                compInfo.Type = Enums.NodeType.Content;
+                compInfo.ContentTypeAlias = type.Alias;
+                compInfo.Compositions = type.ContentTypeComposition.ToList();
+
+                comps.Add(compInfo);
+            }
+
+            //Media
+            var mediaTypes = AllMediaTypes;
+            foreach (var type in mediaTypes)
+            {
+                var compInfo = new CompositionsWithTypes();
+                compInfo.Type = Enums.NodeType.Media;
+                compInfo.ContentTypeAlias = type.Alias;
+                compInfo.Compositions = type.ContentTypeComposition.ToList();
+
+                comps.Add(compInfo);
+            }
+
+            return comps;
+        }
+
         public IEnumerable<IDataType> GetNestedContentDataTypes()
         {
             var ncTypes = AllDataTypes.Where(n => n.EditorAlias == "Umbraco.NestedContent");
@@ -290,10 +321,31 @@
                 throw new Exception(errMsg);
             }
 
+            switch (FormInputs.PropToPropTypeOption)
+            {
+                case Enums.PropToPropType.DirectCopy:
+                    return ProcessPropToPropDirectCopy(FormInputs);
+
+                case Enums.PropToPropType.IntsToUdis:
+                    return ProcessPropToPropIntToUdi(FormInputs);
+
+                case Enums.PropToPropType.CustomMigration:
+                    return ProcessPropToPropCustomMigrator(FormInputs);
+
+                default:
+                    return ProcessPropToPropDirectCopy(FormInputs);
+            }
+        }
+
+        public PropToPropResultsSet ProcessPropToPropDirectCopy(FormInputsPropertyToProperty FormInputs)
+        {
+            //SETUP
             var resultSet = new PropToPropResultsSet();
             resultSet.FormInputs = FormInputs;
+            resultSet.Type = Enums.PropToPropType.DirectCopy;
 
-            resultSet.Type = Enums.PropToPropType.Copy; //default
+            var results = new List<PropToPropResult>();
+
 
             //TODO: HLF - Add checking for valid matching transfer types - throw error if data cannot be transferred between different types
             var fromDocTypeProp = AllDocTypeProperties.Where(n =>
@@ -305,9 +357,6 @@
                 n.DocTypeAlias == FormInputs.DocTypeAlias && n.Property.Alias == FormInputs.PropertyAliasTo).First();
             var toPropDataType = _services.DataTypeService.GetDataType(toDocTypeProp.Property.DataTypeId);
             var toPropDbType = toPropDataType.DatabaseType;
-
-
-            var results = new List<PropToPropResult>();
 
             //get content
             var nodes = IdCsvToContents(FormInputs.ContentNodeIdsCsv);
@@ -395,6 +444,7 @@
                 }
             }
 
+            //WRAP UP
             resultSet.Results = results;
             return resultSet;
         }
@@ -457,6 +507,105 @@
             //    result.NewPropertyData = originalData;
             //}
         }
+
+        public PropToPropResultsSet ProcessPropToPropCustomMigrator(FormInputsPropertyToProperty FormInputs)
+        {
+            //SETUP
+            var resultSet = new PropToPropResultsSet();
+            resultSet.FormInputs = FormInputs;
+            resultSet.Type = Enums.PropToPropType.CustomMigration;
+
+            var results = new List<PropToPropResult>();
+
+            //Test for Valid Custom option
+            if (string.IsNullOrEmpty(FormInputs.CustomMigrationClass))
+            {
+                //Error - return empty
+                resultSet.HasError = true;
+                resultSet.ErrorMessage = "No Custom Migrator Class Provided";
+                resultSet.Results = results;
+                return resultSet;
+            }
+
+            ICustomPropToPropDataMigrator customMigrator = AssemblyHelpers.GetAssemblyTypeInstance(FormInputs.CustomMigrationClass) as ICustomPropToPropDataMigrator;
+
+            if (customMigrator == null)
+            {
+                //Error - return empty
+                resultSet.HasError = true;
+                resultSet.ErrorMessage = $"Unable to get an instance of Migrator '{FormInputs.CustomMigrationClass}'";
+                resultSet.Results = results;
+                return resultSet;
+            }
+
+            //get content
+            var nodes = IdCsvToContents(FormInputs.ContentNodeIdsCsv);
+
+            //loop
+            foreach (var node in nodes)
+            {
+                var fromPropMatches = node.Properties.Where(n => n.Alias == FormInputs.PropertyAliasFrom).ToList();
+                var fromProp = fromPropMatches.Any() ? fromPropMatches.First() : null;
+
+                var toPropMatches = node.Properties.Where(n => n.Alias == FormInputs.PropertyAliasTo).ToList();
+                var toProp = toPropMatches.Any() ? toPropMatches.First() : null;
+
+                var result = new PropToPropResult();
+                result.ContentNode = node;
+                result.PropertyToAlias = FormInputs.PropertyAliasTo;
+
+                if (fromProp == null)
+                {
+                    var errMsg =
+                        $"No property Matching the 'From' Property of {FormInputs.PropertyAliasFrom} exists on Content Node {node.Id}";
+                    result.Status = errMsg;
+                }
+                else
+                {
+                    result.PropertyFromAlias = fromProp.Alias;
+
+                    var fromPropData = fromProp.GetValue();
+                    result.PropertyFromData = fromPropData;
+                    result.PropertyFromDataFormat = fromPropData != null ? fromPropData.GetType().ToString() : "NULL";
+
+                    var originalToData = toProp != null ? toProp.GetValue() : null;
+                    result.PropertyToDataFormat = originalToData != null ? originalToData.GetType().ToString() : "NULL";
+
+                    //Check that migrator is valid for this data
+                    var notValidReasonMsg = "";
+                    if (customMigrator.IsValidForData(node.Id, node.ContentType.Alias, fromProp.PropertyType, fromPropData, toProp.PropertyType, originalToData, out notValidReasonMsg))
+                    {
+                        var conversionError = "";
+                        var newData = customMigrator.TransformData(fromPropData, out conversionError);
+
+                        if (string.IsNullOrEmpty(conversionError))
+                        {
+                            result.ValidToTransfer = true;
+                            result.PropertyToData = newData;
+                        }
+                        else
+                        {
+                            result.Status = conversionError;
+                            result.PropertyToData = originalToData;
+                        }
+                    }
+                    else
+                    {
+                        //migrator not valid for this
+                        result.DataFormatIsNotValidForTransfer = true;
+                        result.PropertyToData = originalToData;
+                        result.Status = notValidReasonMsg;
+                    }
+                }
+
+                results.Add(result);
+            }
+
+            //WRAP UP
+            resultSet.Results = results;
+            return resultSet;
+        }
+
         #endregion
 
         #region Process Data - Find/Replace
@@ -532,7 +681,8 @@
                     //var testListString = AssemblyHelpers.TestSerializable(typeof(List<string>));
 
                     //Check that migrator is valid for this data
-                    if (customMigrator.IsValidForData(node.Id, node.ContentType.Alias, propertyData.PropertyType, originalData))
+                    var notValidReasonMsg = "";
+                    if (customMigrator.IsValidForData(node.Id, node.ContentType.Alias, propertyData.PropertyType, originalData, out notValidReasonMsg))
                     {
                         if (originalData != null)
                         {
@@ -543,16 +693,13 @@
                             result.Status = conversionError;
                             result.MatchFound = true;
                         }
-                        else
-                        {
-                            result.NewPropertyData = originalData;
-                        }
                     }
                     else
                     {
                         //migrator not valid for this
                         result.DataFormatIsNotValidForReplace = true;
                         result.NewPropertyData = originalData;
+                        result.Status = notValidReasonMsg;
                     }
 
                     results.Add(result);
@@ -563,7 +710,6 @@
             resultSet.Results = results;
             return resultSet;
         }
-
 
         public FindReplaceResultsSet ProcessFindReplaceText(FormInputsFindReplace FormInputs)
         {
@@ -814,27 +960,25 @@
             var aliases = CsvToEnumerable(FormInputs.PropertyAliasesCsv);
             resultSet.PropertyAliases = aliases;
 
+            ////Make some alterations to the provided Find and Replace values
+            //var formFindString = FormInputs.Find;
+            //var formReplaceString = FormInputs.Replace;
 
+            ////If the fields are empty, assume full-field replacement 
+            //if (string.IsNullOrEmpty(formFindString))
+            //{
+            //    formFindString = "~ID~";
+            //}
+            //else if (formFindString.Contains(@"\"))
+            //{
+            //    //escape special chars in Find for regex
+            //    formFindString = formFindString.Replace(@"\", @"\\");
+            //}
 
-            //Make some alterations to the provided Find and Replace values
-            var formFindString = FormInputs.Find;
-            var formReplaceString = FormInputs.Replace;
-
-            //If the fields are empty, assume full-field replacement 
-            if (string.IsNullOrEmpty(formFindString))
-            {
-                formFindString = "~ID~";
-            }
-            else if (formFindString.Contains(@"\"))
-            {
-                //escape special chars in Find for regex
-                formFindString = formFindString.Replace(@"\", @"\\");
-            }
-
-            if (string.IsNullOrEmpty(formReplaceString))
-            {
-                formReplaceString = "~UDI~";
-            }
+            //if (string.IsNullOrEmpty(formReplaceString))
+            //{
+            //    formReplaceString = "~UDI~";
+            //}
 
 
             var results = new List<FindReplaceResult>();
@@ -859,94 +1003,58 @@
 
                     if (originalData is string)
                     {
-                        //Since we are looping, this value with continually be updated with each match
-                        var newData = originalData.ToString();
+                        var origString = originalData.ToString();
+                        var newUdi = "";
 
-                        //Use Regex to locate the "Find" substring
-                        var constructRegex = formFindString.Replace("~ID~", @"\d+");
-                        Regex regexFindString = new Regex(constructRegex);
-
-                        var findMatches = regexFindString.Matches(originalData.ToString());
-                        if (findMatches.Count > 0)
+                        //Check that it needs fixing
+                        if (!origString.StartsWith("umb://"))
                         {
-                            //Loop through all matches replacing values
-                            foreach (Match findMatch in findMatches)
+                            //Get the INT ID
+                            int intOriginalId;
+                            var isInteger = Int32.TryParse(origString, out intOriginalId);
+                            if (isInteger)
                             {
-                                var findString = findMatch.Value;
-                                result.FindStrings.Add(findString);
-
-                                //Get the INT ID
-                                Regex regexId = new Regex(@"\d+");
-                                Match idMatch = regexId.Match(findString);
-                                if (idMatch.Success)
+                                //Get the new UDI
+                                var lookupContentNode = _services.ContentService.GetById(intOriginalId);
+                                if (lookupContentNode != null)
                                 {
-                                    string foundId = idMatch.Value;
-
-                                    int intOriginalId;
-                                    var isInteger = Int32.TryParse(foundId, out intOriginalId);
-                                    if (isInteger)
+                                    newUdi = lookupContentNode.GetUdi().ToString();
+                                }
+                                else
+                                {
+                                    //Try Media
+                                    var lookupMediaNode = _services.MediaService.GetById(intOriginalId);
+                                    if (lookupMediaNode != null)
                                     {
-                                        //Get the new UDI
-                                        var lookupContentNode = _services.ContentService.GetById(intOriginalId);
-                                        if (lookupContentNode != null)
-                                        {
-                                            //Create the Replace string
-                                            var replaceString =
-                                                formReplaceString.Replace("~UDI~", lookupContentNode.GetUdi().ToString());
-                                            result.ReplaceStrings.Add(replaceString);
-
-                                            //UPDATE THE DATA
-                                            newData = newData.Replace(findString, replaceString);
-                                        }
-                                        else
-                                        {
-                                            //Try Media
-                                            var lookupMediaNode = _services.MediaService.GetById(intOriginalId);
-                                            if (lookupMediaNode != null)
-                                            {
-                                                //Create the Replace string
-                                                var replaceString =
-                                                    formReplaceString.Replace("~UDI~", lookupMediaNode.GetUdi().ToString());
-                                                result.ReplaceStrings.Add(replaceString);
-
-                                                //UPDATE THE DATA
-                                                newData = newData.Replace(findString, replaceString);
-                                            }
-                                            else
-                                            {
-                                                //no node found, add a message and continue
-                                                var msg = $"Unable to find a matching node for Id {intOriginalId}";
-                                                result.Status = result.Status + "; " + msg;
-                                                result.ReplaceStrings.Add($"[{msg}]");
-                                            }
-                                        }
+                                        newUdi = lookupMediaNode.GetUdi().ToString();
                                     }
                                     else
                                     {
-                                        //Not a valid int, add a message and continue
-                                        var msg = $"{foundId} is not a valid Integer Id ({findString})";
+                                        //no node found, add a message and continue
+                                        var msg = $"Unable to find a matching node for Id {intOriginalId}";
                                         result.Status = result.Status + "; " + msg;
                                         result.ReplaceStrings.Add($"[{msg}]");
                                     }
                                 }
-                                else
-                                {
-                                    //Unable to get Int ID, add a message and continue
-                                    var msg = $"Unable to get a valid Integer Id for {findString}";
-                                    result.Status = result.Status + "; " + msg;
-                                    result.ReplaceStrings.Add($"[{msg}]");
-                                }
-                            }
 
-                            //All done replacing...
-                            result.Status = $"OK";
-                            result.MatchFound = true;
-                            result.NewPropertyData = newData;
+                                //All done replacing...
+                                result.Status = $"OK";
+                                result.MatchFound = true;
+                                result.NewPropertyData = newUdi;
+                            }
+                            else
+                            {
+                                //Not a valid int, add a message and continue
+                                var msg = $"{origString} is not a valid Integer Id";
+                                result.Status = result.Status + "; " + msg;
+                                result.ReplaceStrings.Add($"[{msg}]");
+                            }
                         }
                         else
                         {
-                            //No matches found
-                            result.Status = $"No Match";
+                            //Already a UDI
+                            result.Status = $"Original Data is already a UDI";
+                            result.MatchFound = false;
                             result.NewPropertyData = originalData;
                         }
                     }
@@ -1081,6 +1189,129 @@
             resultSet.Results = results;
             return resultSet;
         }
+
+        #endregion
+
+        #region Process Data - Store Legacy Data
+
+        public LegacyDataResultsSet ProcessStoreLegacyData(FormInputsStoreLegacyData FormInputs)
+        {
+            //SETUP
+            var resultSet = new LegacyDataResultsSet();
+            resultSet.FormInputs = FormInputs;
+
+            var results = new List<LegacyDataResult>();
+
+            //STORE CONTENT ID
+            if (!string.IsNullOrEmpty(FormInputs.PropertyAliasContentNodeId))
+            {
+                //Get all doctypes with the property
+                var propAlias = FormInputs.PropertyAliasContentNodeId;
+                var docTypesWithProps = AllDocTypeProperties.Where(n => n.Property.Alias == propAlias);
+                var docTypeAliases = docTypesWithProps.Select(n => n.DocTypeAlias).Distinct().ToList();
+
+                //get content
+                var nodes = AllContent.Where(n => docTypeAliases.Contains(n.ContentType.Alias));
+
+                //loop
+                foreach (var node in nodes)
+                {
+                    var legacyId = node.Id;
+
+                    var result = new LegacyDataResult();
+                    result.Type = Enums.NodeType.Content;
+                    result.ContentNode = node;
+                    result.IdPropertyAlias = propAlias;
+
+                    //Check that the property can accept an INT value
+                    var thisProp = docTypesWithProps.Where(n => n.DocTypeAlias == node.ContentType.Alias).First();
+                    var legacyPropDataType = _services.DataTypeService.GetDataType(thisProp.Property.DataTypeId);
+                    var dbType = legacyPropDataType.DatabaseType;
+                    var currentLegacyData = node.GetValue(propAlias);
+
+                    if (dbType == ValueStorageType.Ntext || dbType == ValueStorageType.Nvarchar ||
+                        dbType == ValueStorageType.Integer)
+                    {
+                        var currentDataString = currentLegacyData != null ? currentLegacyData.ToString() : null;
+                        if (string.IsNullOrEmpty(currentDataString) || FormInputs.OverwriteExistingData)
+                        {
+                            result.IdData = legacyId;
+                            result.ValidToTransfer = true;
+                        }
+                        else
+                        {
+                            result.IdData = currentLegacyData;
+                        }
+                    }
+                    else
+                    {
+                        result.DataFormatIsNotValidForTransfer = true;
+                        result.IdData = currentLegacyData;
+                    }
+
+                    results.Add(result);
+                }
+            }
+
+            //STORE MEDIA ID
+            if (!string.IsNullOrEmpty(FormInputs.PropertyAliasMediaNodeId))
+            {
+                //Get all mediaTypes with the property
+                var propAlias = FormInputs.PropertyAliasMediaNodeId;
+                var mediaTypesWithProps = AllMediaTypeProperties.Where(n => n.Property.Alias == propAlias);
+                var mediaTypeAliases = mediaTypesWithProps.Select(n => n.DocTypeAlias).Distinct().ToList();
+
+                //get media nodes
+                var nodes = AllMedia.Where(n => mediaTypeAliases.Contains(n.ContentType.Alias));
+
+                //loop
+                foreach (var node in nodes)
+                {
+                    var legacyId = node.Id;
+
+                    var result = new LegacyDataResult();
+                    result.Type = Enums.NodeType.Media;
+                    result.MediaNode = node;
+                    result.IdPropertyAlias = propAlias;
+
+                    //Check that the property can accept an INT value
+                    var thisProp = mediaTypesWithProps.Where(n => n.DocTypeAlias == node.ContentType.Alias).First();
+                    var legacyPropDataType = _services.DataTypeService.GetDataType(thisProp.Property.DataTypeId);
+                    var dbType = legacyPropDataType.DatabaseType;
+                    var currentLegacyData = node.GetValue(propAlias);
+
+                    if (dbType == ValueStorageType.Ntext || dbType == ValueStorageType.Nvarchar ||
+                        dbType == ValueStorageType.Integer)
+                    {
+                        var currentDataString = currentLegacyData != null ? currentLegacyData.ToString() : null;
+                        if (string.IsNullOrEmpty(currentDataString) || FormInputs.OverwriteExistingData)
+                        {
+                            result.IdData = legacyId;
+                            result.ValidToTransfer = true;
+                        }
+                        else
+                        {
+                            result.IdData = currentLegacyData;
+                        }
+                    }
+                    else
+                    {
+                        result.DataFormatIsNotValidForTransfer = true;
+                        result.IdData = currentLegacyData;
+                    }
+
+                    results.Add(result);
+                }
+            }
+
+            //FINISH UP
+            resultSet.Results = results;
+            return resultSet;
+        }
+
+        #endregion
+
+        #region Process Data - Helpers
 
         private IEnumerable<string> SplitDataIntoList(string OriginalData)
         {
@@ -1393,6 +1624,7 @@
         //}
 
         #endregion
+
 
 
     }

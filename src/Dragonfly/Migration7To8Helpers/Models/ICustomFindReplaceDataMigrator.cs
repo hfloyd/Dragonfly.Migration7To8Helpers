@@ -1,6 +1,4 @@
-﻿
-
-namespace Dragonfly.Migration7To8Helpers.Models
+﻿namespace Dragonfly.Migration7To8Helpers.Models
 {
     using System;
     using System.Collections.Generic;
@@ -18,7 +16,7 @@ namespace Dragonfly.Migration7To8Helpers.Models
         /// <param name="ContentType"></param>
         /// <param name="DataType"></param>
         /// <returns></returns>
-        bool IsValidForData(int NodeId, string ContentTypeAlias,  PropertyType PropType, object OriginalData);
+        bool IsValidForData(int NodeId, string ContentTypeAlias,  PropertyType PropType, object OriginalData, out string NotValidReasonMsg);
 
         /// <summary>
         /// Does the Conversion

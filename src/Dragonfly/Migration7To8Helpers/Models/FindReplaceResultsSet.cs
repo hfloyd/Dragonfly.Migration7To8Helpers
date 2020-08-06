@@ -7,6 +7,7 @@
     using System.Threading.Tasks;
     using System.Web.Mvc;
     using Umbraco.Core.Models;
+    using Umbraco.Core.Services;
 
     public static partial class Enums
     {
@@ -21,7 +22,7 @@
         {
             var dict = new Dictionary<FindReplaceType, string>();
 
-            dict.Add(FindReplaceType.TextToText,"Simple Text-to-Text");
+            dict.Add(FindReplaceType.TextToText, "Simple Text-to-Text");
             dict.Add(FindReplaceType.IntsToUdis, "Replace Integer Ids with UDIs");
             dict.Add(FindReplaceType.CustomMigration, "Custom Migration (select)");
             return dict;
@@ -30,11 +31,11 @@
         public static IEnumerable<SelectListItem> FindReplaceTypesSelectList()
         {
             var dict = FindReplaceTypesWithDisplayText();
-                var options = dict.Select(d => new SelectListItem
-                {
-                    Value = d.Key.ToString(),
-                    Text = d.Value.ToString()
-                });
+            var options = dict.Select(d => new SelectListItem
+            {
+                Value = d.Key.ToString(),
+                Text = d.Value.ToString()
+            });
 
             //if default option needed... (string DefaultValue, string DefaultText)
             //if (!string.IsNullOrEmpty(DefaultValue))
@@ -44,14 +45,13 @@
             //        Value = DefaultId,
             //        Text = DefaultText
             //    }, count: 1);
-                
+
             //    return defaultSelect.Concat(options);
             //}
 
             return options;
         }
 
-      
     }
 
     public class FindReplaceResultsSet
@@ -92,6 +92,8 @@
         public string Status { get; set; }
         public List<string> FindStrings { get; set; }
         public List<string> ReplaceStrings { get; set; }
+        public OperationResult SaveOnlyResult { get; set; }
+        public PublishResult SavePublishResult { get; set; }
         public FindReplaceResult()
         {
             Key = Guid.NewGuid();

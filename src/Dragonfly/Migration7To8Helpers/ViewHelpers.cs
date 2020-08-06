@@ -161,7 +161,7 @@
 
         public static IEnumerable<SelectListItem> CustomFindReplaceMigratorsAllClassesSelectList(string DefaultValue, string DefaultSelectText, string NoOptionsText)
         {
-            var list = CustomMigratorHelpers.GetAllFindReplaceClassNames(Enums.CustomMigratorTypes.ICustomFindReplaceDataMigrator);
+            var list = CustomMigratorHelpers.GetAllMigratorClassNames(Enums.CustomMigratorTypes.ICustomFindReplaceDataMigrator);
             var options = list.Select(i => new SelectListItem
             {
                 Value = i.ToString(),
@@ -189,6 +189,45 @@
                         Text = DefaultSelectText
                     }, count: 1);
                     
+                    return defaultSelect.Concat(options);
+                }
+                else //no default to add
+                {
+                    return options;
+                }
+            }
+        }
+
+        public static IEnumerable<SelectListItem> CustomPropToPropMigratorsAllClassesSelectList(string DefaultValue, string DefaultSelectText, string NoOptionsText)
+        {
+            var list = CustomMigratorHelpers.GetAllMigratorClassNames(Enums.CustomMigratorTypes.ICustomPropToPropDataMigrator);
+            var options = list.Select(i => new SelectListItem
+            {
+                Value = i.ToString(),
+                Text = i.ToString()
+            });
+
+            if (!options.Any())
+            {
+                var defaultSelect = Enumerable.Repeat(new SelectListItem
+                {
+                    Value = DefaultValue,
+                    Text = NoOptionsText
+                }, count: 1);
+
+                return defaultSelect;
+            }
+            else
+            {
+                //if default option needed... (string DefaultValue, string DefaultText)
+                if (!string.IsNullOrEmpty(DefaultSelectText))
+                {
+                    var defaultSelect = Enumerable.Repeat(new SelectListItem
+                    {
+                        Value = DefaultValue,
+                        Text = DefaultSelectText
+                    }, count: 1);
+
                     return defaultSelect.Concat(options);
                 }
                 else //no default to add
