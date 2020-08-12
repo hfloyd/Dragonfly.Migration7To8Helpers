@@ -140,6 +140,7 @@
                         <th>Node Is Published</th>
                         <th>Property Alias</th>
                         <th>Property Data</th>
+                        <th>Property Data Length</th>
                     </tr>
                 </thead>
                 <tbody>
@@ -151,17 +152,18 @@
                         {
                             counter++;
 
-                            <tr>
-                                <td>@counter</td>
-                                <td>
-                                    <a href="/umbraco/#/content/content/edit/@node.Id" target="_blank">Edit in Umbraco</a>
-                                </td>
-                                <td>@node.Id</td>
-                                <td>@node.Name</td>
-                                <td>@node.Published</td>
-                                <td>@propertyData.Alias</td>
-                                <td>@propertyData.GetValue()</td>
-                            </tr>
+                    <tr>
+                        <td>@counter</td>
+                        <td>
+                            <a href="/umbraco/#/content/content/edit/@node.Id" target="_blank">Edit in Umbraco</a>
+                        </td>
+                        <td>@node.Id</td>
+                        <td>@node.Name</td>
+                        <td>@node.Published</td>
+                        <td>@propertyData.Alias</td>
+                        <td>@propertyData.GetValue()</td>
+                        <td>@(propertyData.GetValue()!=null? propertyData.GetValue().ToString().Length:0)</td>
+                    </tr>
                         }
                     }
                 </tbody>
