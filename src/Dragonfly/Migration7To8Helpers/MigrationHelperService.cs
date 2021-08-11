@@ -26,6 +26,8 @@
         private readonly UmbracoContext _umbracoContext;
         private readonly UmbracoHelper _umbracoHelper;
         private readonly ServiceContext _services;
+        private readonly IPublishedContentQuery _publishedContentQuery;
+        
 
         private Config _config;
 
@@ -179,11 +181,14 @@
         public MigrationHelperService()
         {
             //Services
+
+            //TODO: Fix DI here...
             this._logger = Current.Logger;
             this._appCaches = Current.AppCaches;
             this._umbracoContext = Current.UmbracoContext;
             this._umbracoHelper = Current.UmbracoHelper;
             this._services = Current.Services;
+            //this._publishedContentQuery = publishedContentQuery;
 
             //Config Data
             _config = Config.GetConfig();
@@ -315,29 +320,81 @@
         public PropToPropResultsSet ProcessPropertyToProperty(FormInputsPropertyToProperty FormInputs)
         {
             if (string.IsNullOrEmpty(FormInputs.PropertyAliasFrom) ||
-                string.IsNullOrEmpty(FormInputs.PropertyAliasTo) || string.IsNullOrEmpty(FormInputs.DocTypeAlias))
+                string.IsNullOrEmpty(FormInputs.PropertyAliasTo) || string.IsNullOrEmpty(FormInputs.TypeAlias))
             {
-                var errMsg = $"ProcessPropertyToProperty: Form Inputs for DocTypeAlias ({FormInputs.DocTypeAlias}),  'To' Property ({FormInputs.PropertyAliasTo}), and 'From' Property ( {FormInputs.PropertyAliasFrom}) are all required.";
+                var errMsg = $"ProcessPropertyToProperty: Form Inputs for TypeAlias ({FormInputs.TypeAlias}),  'To' Property ({FormInputs.PropertyAliasTo}), and 'From' Property ( {FormInputs.PropertyAliasFrom}) are all required.";
                 throw new Exception(errMsg);
             }
 
             switch (FormInputs.PropToPropTypeOption)
             {
                 case Enums.PropToPropType.DirectCopy:
-                    return ProcessPropToPropDirectCopy(FormInputs);
+                    if (FormInputs.NodeTypes == Enums.NodeType.Content)
+                    {
+                        return ProcessPropToPropDirectCopyContent(FormInputs);
+                    }
+                    else if (FormInputs.NodeTypes == Enums.NodeType.Media)
+                    {
+                        return ProcessPropToPropDirectCopyMedia(FormInputs);
+                    }
+                    else
+                    {
+                        throw new NotImplementedException(
+                            "No Property to Property Direct Copy function available for " +
+                            FormInputs.NodeTypes.ToString());
+                    }
 
                 case Enums.PropToPropType.IntsToUdis:
-                    return ProcessPropToPropIntToUdi(FormInputs);
+                    if (FormInputs.NodeTypes == Enums.NodeType.Content)
+                    {
+                        return ProcessPropToPropIntToUdi(FormInputs);
+                    }
+                    //else if (FormInputs.NodeTypes == Enums.NodeType.Media)
+                    //{
+                    //    return ProcessPropToPropDirectCopyMedia(FormInputs);
+                    //}
+                    else
+                    {
+                        throw new NotImplementedException(
+                            "No Property to Property Direct Copy function available for " +
+                            FormInputs.NodeTypes.ToString());
+                    }
 
                 case Enums.PropToPropType.CustomMigration:
-                    return ProcessPropToPropCustomMigrator(FormInputs);
+                    if (FormInputs.NodeTypes == Enums.NodeType.Content)
+                    {
+                        return ProcessPropToPropCustomMigrator(FormInputs);
+                    }
+                    //else if (FormInputs.NodeTypes == Enums.NodeType.Media)
+                    //{
+                    //    return ProcessPropToPropCustomMigrator(FormInputs);
+                    //}
+                    else
+                    {
+                        throw new NotImplementedException(
+                            "No Property to Property Direct Copy function available for " +
+                            FormInputs.NodeTypes.ToString());
+                    }
 
                 default:
-                    return ProcessPropToPropDirectCopy(FormInputs);
+                    if (FormInputs.NodeTypes == Enums.NodeType.Content)
+                    {
+                        return ProcessPropToPropDirectCopyContent(FormInputs);
+                    }
+                    else if (FormInputs.NodeTypes == Enums.NodeType.Media)
+                    {
+                        return ProcessPropToPropDirectCopyMedia(FormInputs);
+                    }
+                    else
+                    {
+                        throw new NotImplementedException(
+                            "No Property to Property Direct Copy function available for " +
+                            FormInputs.NodeTypes.ToString());
+                    }
             }
         }
 
-        public PropToPropResultsSet ProcessPropToPropDirectCopy(FormInputsPropertyToProperty FormInputs)
+        public PropToPropResultsSet ProcessPropToPropDirectCopyContent(FormInputsPropertyToProperty FormInputs)
         {
             //SETUP
             var resultSet = new PropToPropResultsSet();
@@ -345,16 +402,15 @@
             resultSet.Type = Enums.PropToPropType.DirectCopy;
 
             var results = new List<PropToPropResult>();
-
-
+            
             //TODO: HLF - Add checking for valid matching transfer types - throw error if data cannot be transferred between different types
             var fromDocTypeProp = AllDocTypeProperties.Where(n =>
-                n.DocTypeAlias == FormInputs.DocTypeAlias && n.Property.Alias == FormInputs.PropertyAliasFrom).First();
+                n.DocTypeAlias == FormInputs.TypeAlias && n.Property.Alias == FormInputs.PropertyAliasFrom).First();
             var fromPropDataType = _services.DataTypeService.GetDataType(fromDocTypeProp.Property.DataTypeId);
             var fromPropDbType = fromPropDataType.DatabaseType;
 
             var toDocTypeProp = AllDocTypeProperties.Where(n =>
-                n.DocTypeAlias == FormInputs.DocTypeAlias && n.Property.Alias == FormInputs.PropertyAliasTo).First();
+                n.DocTypeAlias == FormInputs.TypeAlias && n.Property.Alias == FormInputs.PropertyAliasTo).First();
             var toPropDataType = _services.DataTypeService.GetDataType(toDocTypeProp.Property.DataTypeId);
             var toPropDbType = toPropDataType.DatabaseType;
 
@@ -384,6 +440,118 @@
                 {
                     var result = new PropToPropResult();
                     result.ContentNode = node;
+                    result.PropertyFromAlias = fromProp.Alias;
+                    result.PropertyToAlias = FormInputs.PropertyAliasTo;
+
+                    var fromPropData = fromProp.GetValue();
+                    result.PropertyFromData = fromPropData;
+                    result.PropertyFromDataFormat = fromPropData != null ? fromPropData.GetType().ToString() : "NULL";
+
+                    var originalToData = toProp != null ? toProp.GetValue() : null;
+                    result.PropertyToDataFormat = originalToData != null ? originalToData.GetType().ToString() : "NULL";
+
+                    if (fromPropData != null)
+                    {
+                        if (toPropDbType == ValueStorageType.Ntext || toPropDbType == ValueStorageType.Nvarchar)
+                        {
+                            var stringToData = originalToData != null ? originalToData.ToString() : null;
+                            if (string.IsNullOrEmpty(stringToData) || FormInputs.OverwriteExistingData)
+                            {
+                                result.PropertyToData = fromPropData.ToString();
+                                result.ValidToTransfer = true;
+                            }
+                            else
+                            {
+                                result.PropertyToData = originalToData;
+                            }
+                        }
+                        else if (toPropDbType == ValueStorageType.Integer)
+                        {
+                            var stringToData = originalToData != null ? originalToData.ToString() : null;
+                            if (string.IsNullOrEmpty(stringToData) || FormInputs.OverwriteExistingData)
+                            {
+                                int intFrom;
+                                var fromIsInt = Int32.TryParse(fromPropData.ToString(), out intFrom);
+
+                                if (fromIsInt)
+                                {
+                                    result.PropertyToData = intFrom;
+                                    result.ValidToTransfer = true;
+                                }
+                                else
+                                {
+                                    result.DataFormatIsNotValidForTransfer = true;
+                                    result.PropertyToData = originalToData;
+                                }
+                            }
+                            else
+                            {
+                                result.PropertyToData = originalToData;
+                            }
+                        }
+                        else //TODO: Support other datatypes - decimal, datetime, etc.
+                        {
+                            result.DataFormatIsNotValidForTransfer = true;
+                            result.PropertyToData = originalToData;
+                        }
+                    }
+
+                    results.Add(result);
+                }
+            }
+
+            //WRAP UP
+            resultSet.Results = results;
+            return resultSet;
+        }
+
+        public PropToPropResultsSet ProcessPropToPropDirectCopyMedia(FormInputsPropertyToProperty FormInputs)
+        {
+            //SETUP
+            var resultSet = new PropToPropResultsSet();
+            resultSet.FormInputs = FormInputs;
+            resultSet.Type = Enums.PropToPropType.DirectCopy;
+
+            var results = new List<PropToPropResult>();
+
+
+            //TODO: HLF - Add checking for valid matching transfer types - throw error if data cannot be transferred between different types
+            var fromDocTypeProp = AllMediaTypeProperties.Where(n =>
+                n.DocTypeAlias == FormInputs.TypeAlias && n.Property.Alias == FormInputs.PropertyAliasFrom).First();
+            var fromPropDataType = _services.DataTypeService.GetDataType(fromDocTypeProp.Property.DataTypeId);
+            var fromPropDbType = fromPropDataType.DatabaseType;
+
+            var toDocTypeProp = AllMediaTypeProperties.Where(n =>
+                n.DocTypeAlias == FormInputs.TypeAlias && n.Property.Alias == FormInputs.PropertyAliasTo).First();
+            var toPropDataType = _services.DataTypeService.GetDataType(toDocTypeProp.Property.DataTypeId);
+            var toPropDbType = toPropDataType.DatabaseType;
+
+            //get content
+            var nodes = IdCsvToMedias(FormInputs.ContentNodeIdsCsv);
+
+            //loop
+            foreach (var node in nodes)
+            {
+                var fromPropMatches = node.Properties.Where(n => n.Alias == FormInputs.PropertyAliasFrom).ToList();
+                var fromProp = fromPropMatches.Any() ? fromPropMatches.First() : null;
+
+                var toPropMatches = node.Properties.Where(n => n.Alias == FormInputs.PropertyAliasTo).ToList();
+                var toProp = toPropMatches.Any() ? toPropMatches.First() : null;
+
+                if (fromProp == null)
+                {
+                    var errMsg = $"No property Matching the 'From' Property of {FormInputs.PropertyAliasFrom} exists on Media Node {node.Id}";
+                    throw new Exception(errMsg);
+                }
+                //else if (toProp == null)
+                //{
+                //    var errMsg = $"No property Matching the 'To' Property of {FormInputs.PropertyAliasTo} exists on Content Node {node.Id}";
+                //    throw new Exception(errMsg);
+                //}
+                else
+                {
+                    var result = new PropToPropResult();
+                    result.MediaNode = node;
                     result.PropertyFromAlias = fromProp.Alias;
                     result.PropertyToAlias = FormInputs.PropertyAliasTo;
 
@@ -1311,6 +1479,15 @@
 
         #endregion
 
+        #region Process Data - Lookup Udi
+
+        public object LookupUdi(FormInputsUdiLookup FormInputs)
+        {
+            return null;
+        }
+
+        #endregion
+
         #region Process Data - Helpers
 
         private IEnumerable<string> SplitDataIntoList(string OriginalData)
@@ -1354,6 +1531,22 @@
             else
             {
                 return new List<IContent>();
+            }
+        }
+
+        public IEnumerable<IMedia> IdCsvToMedias(string IdsCsv)
+        {
+            if (IdsCsv != null)
+            {
+                var idStrings = IdsCsv.Split(',');
+                var idInts = idStrings.Select(n => Convert.ToInt32(n));
+                var nodes = _services.MediaService.GetByIds(idInts);
+
+                return nodes;
+            }
+            else
+            {
+                return new List<IMedia>();
             }
         }
 

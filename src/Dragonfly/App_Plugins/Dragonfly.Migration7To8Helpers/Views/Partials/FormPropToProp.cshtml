@@ -19,7 +19,8 @@
 
         <form action="/Umbraco/backoffice/Api/MigrationHelperApi/TransferPropertyToProperty" method="post">
             @Html.HiddenFor(f => f.ContentNodeIdsCsv)
-            @Html.HiddenFor(f => f.DocTypeAlias)
+            @Html.HiddenFor(f => f.NodeTypes)
+            @Html.HiddenFor(f => f.TypeAlias)
             @Html.HiddenFor(f=> f.AvailablePropertiesCSV)
             <div class="form-group">
                 <label for="TypeOption">Type</label>

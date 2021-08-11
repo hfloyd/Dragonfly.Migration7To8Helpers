@@ -9,6 +9,34 @@
 
     public partial class Enums
     {
+        #region NodeType
+
+        public enum NodeType
+        {
+            Content,
+            Media,
+            Unknown
+        }
+
+        public static NodeType GetNodeType(string TypeString)
+        {
+            switch (TypeString)
+            {
+                case "Content":
+                    return NodeType.Content;
+
+                case "Media":
+                    return NodeType.Media;
+
+                default:
+                    return NodeType.Unknown;
+            }
+        }
+
+        #endregion
+
+
+
         #region CustomMigrationHelper
         public enum CustomMigratorTypes
         {

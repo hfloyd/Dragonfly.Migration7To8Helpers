@@ -7,6 +7,7 @@
     using System.Web.Mvc;
     using System.Web.WebPages;
     using Dragonfly.Migration7To8Helpers.Models;
+    using Dragonfly.NetHelpers;
     using Umbraco.Core.Composing.CompositionExtensions;
     using Umbraco.Core.Models;
     using Umbraco.Core.Services;
@@ -102,12 +103,42 @@
 
             return csv;
         }
+
+        public static string ConvertToCsvIds(IEnumerable<IMedia> AffectedMediaNodes)
+        {
+            var csv = "";
+
+            var ids = AffectedMediaNodes.Select(n => n.Id);
+            csv = string.Join(",", ids);
+
+            return csv;
+        }
         public static IHtmlString Highlight(string OriginalText, IEnumerable<string> TextStringsToHighlight)
         {
-            var newText = OriginalText;
-            foreach (var str in TextStringsToHighlight)
+            var newText = "";
+
+            //Check for HTML tags to encode
+            var isHtml = false;
+            if (OriginalText.Contains("<"))
             {
-                newText = Highlight(newText, str).ToString();
+                isHtml = true;
+            }
+
+            if (isHtml)
+            {
+                 newText = OriginalText.HtmlEncode();
+                foreach (var str in TextStringsToHighlight)
+                {
+                    newText = Highlight(newText, str.HtmlEncode()).ToString();
+                }
+            }
+            else
+            {
+                 newText = OriginalText;
+                foreach (var str in TextStringsToHighlight)
+                {
+                    newText = Highlight(newText, str).ToString();
+                }
             }
 
             return new HtmlString(newText);

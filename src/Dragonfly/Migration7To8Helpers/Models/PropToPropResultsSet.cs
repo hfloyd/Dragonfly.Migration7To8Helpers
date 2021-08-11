@@ -89,6 +89,7 @@
         public Guid Key { get; set; }
         public OperationResult SaveOnlyResult { get; set; }
         public PublishResult SavePublishResult { get; set; }
+        public IMedia MediaNode { get; set; }
 
         public PropToPropResult()
         {

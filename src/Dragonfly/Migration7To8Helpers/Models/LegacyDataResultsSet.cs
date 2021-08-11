@@ -10,11 +10,7 @@
 
     public partial class Enums
     {
-        public enum NodeType
-        {
-            Content,
-            Media
-        }
+        
     }
 
     public class LegacyDataResultsSet

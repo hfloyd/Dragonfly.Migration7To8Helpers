@@ -5,10 +5,11 @@
     using System.Linq;
     using System.Text;
     using System.Threading.Tasks;
+    using Umbraco.Core.Composing;
     using Umbraco.Core.Models;
 
 
-    public interface ICustomFindReplaceDataMigrator
+    public interface ICustomFindReplaceDataMigrator : IDiscoverable
     {
         /// <summary>
         /// Allows your custom migrator to test that the provided property is valid for conversion with this Migrator

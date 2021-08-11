@@ -205,6 +205,7 @@
 
             //var allCompositions = ms.GetAllCompositionDocTypes();
             var allCompositions = ms.GetAllCompositionsWithTypes();
+
             var allContentNodesOfType = ms.AllContent.Where(n => n.ContentTypeId == selDocType.Id);
 
             //UPDATE STATUS MSG
@@ -259,7 +260,8 @@
 
             var allRelatedProperties = ms.AllMediaTypeProperties.Where(n => n.DocTypeAlias == selMediaType.Alias);
 
-            var allCompositions = ms.GetAllCompositionMediaTypes();
+            //var allCompositions = ms.GetAllCompositionMediaTypes();
+            var allCompositions = ms.GetAllCompositionsWithTypes();
 
             var allMediaNodesOfType = ms.AllMedia.Where(n => n.ContentTypeId == selMediaType.Id);
 
@@ -297,12 +299,14 @@
 
         #endregion
 
-
+        
         #region Data-Editing Pages
 
-        /// /Umbraco/backoffice/Api/MigrationHelperApi/TransferPropertyToPropertySetup?DocTypeAlias=xx
+        #region Prop-to-Prop
+
+        /// /Umbraco/backoffice/Api/MigrationHelperApi/TransferContentPropertyToPropertySetup?DocTypeAlias=xx
         [System.Web.Http.AcceptVerbs("GET")]
-        public HttpResponseMessage TransferPropertyToPropertySetup(int DocTypeId, string PropertyFrom = "", string PropertyTo = "")
+        public HttpResponseMessage TransferContentPropertyToPropertySetup(int DocTypeId, string PropertyFrom = "", string PropertyTo = "")
         {
             var returnSB = new StringBuilder();
             var returnStatusMsg = new StatusMessage(true); //assume success
@@ -323,7 +327,8 @@
             formInputs.PreviewOnly = true; //default
             formInputs.AvailablePropertiesCSV = string.Join(",", propertyAliases);
             formInputs.ContentNodeIdsCsv = nodesList;
-            formInputs.DocTypeAlias = selDocType.Alias;
+            formInputs.NodeTypes = Enums.NodeType.Content;
+            formInputs.TypeAlias = selDocType.Alias;
             formInputs.PropertyAliasFrom = PropertyFrom;
             formInputs.PropertyAliasTo = PropertyTo;
 
@@ -337,8 +342,8 @@
             viewData.Add("SpecialMessageClass", "bg-info");
 
             //viewData.Add("AvailableProperties", availableProperties);
-            viewData.Add("SelectedDocType", selDocType);
-            viewData.Add("AffectedContentNodes", affectedNodes);
+            viewData.Add("SelectedType", selDocType);
+            viewData.Add("AffectedNodes", affectedNodes);
             viewData.Add("FormInputs", formInputs);
 
             //RENDER
@@ -358,9 +363,9 @@
             };
         }
 
-        /// /Umbraco/backoffice/Api/MigrationHelperApi/TransferPropertyToProperty
-        [HttpPost]
-        public HttpResponseMessage TransferPropertyToProperty(FormInputsPropertyToProperty FormInputs)
+        /// /Umbraco/backoffice/Api/MigrationHelperApi/TransferMediaPropertyToPropertySetup?MediaTypeId=xx
+        [System.Web.Http.AcceptVerbs("GET")]
+        public HttpResponseMessage TransferMediaPropertyToPropertySetup(int MediaTypeId, string PropertyFrom = "", string PropertyTo = "")
         {
             var returnSB = new StringBuilder();
             var returnStatusMsg = new StatusMessage(true); //assume success
@@ -370,83 +375,40 @@
             var ms = new MigrationHelperService();
 
             //GET DATA TO DISPLAY
-            IContentType selDocType = null;
-            IEnumerable<IContent> affectedNodes = new List<IContent>();
-            var specialMessage = "";
-            var specialMsgClass = "bg-info text-white";
+            var selType = Services.MediaTypeService.Get(MediaTypeId);
+            var availableProperties = ms.AllMediaTypeProperties.Where(n => n.DocTypeAlias == selType.Alias);
 
-            var resultSet = new PropToPropResultsSet();
+            var affectedNodes = ms.AllMedia.Where(n => n.ContentTypeId == selType.Id);
+            var nodesList = ViewHelpers.ConvertToCsvIds(affectedNodes);
+            var propertyAliases = availableProperties.Select(n => n.Property.Alias).ToList();
 
-            if (FormInputs != null)
-            {
-                selDocType = Services.ContentTypeService.Get(FormInputs.DocTypeAlias);
-                affectedNodes = ms.IdCsvToContents(FormInputs.ContentNodeIdsCsv);
+            var formInputs = new FormInputsPropertyToProperty();
+            formInputs.PreviewOnly = true; //default
+            formInputs.AvailablePropertiesCSV = string.Join(",", propertyAliases);
+            formInputs.ContentNodeIdsCsv = nodesList;
+            formInputs.NodeTypes = Enums.NodeType.Media;
+            formInputs.TypeAlias = selType.Alias;
+            formInputs.PropertyAliasFrom = PropertyFrom;
+            formInputs.PropertyAliasTo = PropertyTo;
 
-                if (string.IsNullOrEmpty(FormInputs.PropertyAliasFrom) || string.IsNullOrEmpty(FormInputs.PropertyAliasTo))
-                {
-                    specialMessage = "Both a 'From' Property and a 'To' Property are required.";
-                    specialMsgClass = "bg-danger text-white";
-                    //returnStatusMsg.Success = false;
-                    //returnStatusMsg.Message =
-                    //    $"Form Inputs data was missing - Both a 'From' Property and a 'To' Property are required.";
-                }
-                else
-                {
-                    resultSet = ms.ProcessPropertyToProperty(FormInputs);
-
-                    if (resultSet.HasError)
-                    {
-                        specialMessage = resultSet.ErrorMessage;
-                        specialMsgClass = "bg-danger text-white";
-                    }
-                    else if (!FormInputs.PreviewOnly)
-                    {
-                        //Do Content updates
-                        foreach (var toUpdate in resultSet.Results.Where(n => n.ValidToTransfer))
-                        {
-                            var key = toUpdate.Key;
-                            toUpdate.ContentNode.SetValue(toUpdate.PropertyToAlias, toUpdate.PropertyToData);
-
-                            if (toUpdate.ContentNode.Published)
-                            {
-                                var saveResult = Services.ContentService.SaveAndPublish(toUpdate.ContentNode);
-                                resultSet.Results.Find(p => p.Key == key).ContentUpdated = true;
-                                resultSet.Results.Find(p => p.Key == key).SavePublishResult = saveResult;
-                            }
-                            else
-                            {
-                                var saveResult = Services.ContentService.Save(toUpdate.ContentNode);
-                                resultSet.Results.Find(p => p.Key == key).ContentUpdated = true;
-                                resultSet.Results.Find(p => p.Key == key).SaveOnlyResult = saveResult;
-                            }
-                        }
-
-                        resultSet.DataUpdatedAndSaved = true;
-                    }
-                }
-            }
-            else
-            {
-                returnStatusMsg.Success = false;
-                returnStatusMsg.Message =
-                    $"Form Inputs data was missing.";
-            }
+            //UPDATE STATUS MSG
+            //returnStatusMsg.Success = true;
 
             //VIEW DATA 
             var viewData = new ViewDataDictionary();
             viewData.Model = returnStatusMsg;
-            viewData.Add("SpecialMessage", specialMessage);
-            viewData.Add("SpecialMessageClass", specialMsgClass);
+            viewData.Add("SpecialMessage", "");
+            viewData.Add("SpecialMessageClass", "bg-info");
 
             //viewData.Add("AvailableProperties", availableProperties);
-            viewData.Add("SelectedDocType", selDocType);
-            viewData.Add("AffectedContentNodes", affectedNodes);
-            viewData.Add("FormInputs", FormInputs);
-            viewData.Add("Results", resultSet);
+            viewData.Add("SelectedType", selType);
+            viewData.Add("AffectedNodes", affectedNodes);
+            viewData.Add("FormInputs", formInputs);
 
             //RENDER
             var controllerContext = this.ControllerContext;
-            var displayHtml = ApiControllerHtmlHelper.GetPartialViewHtml(controllerContext, pvPath, viewData, HttpContext.Current);
+            var displayHtml =
+                ApiControllerHtmlHelper.GetPartialViewHtml(controllerContext, pvPath, viewData, HttpContext.Current);
             returnSB.AppendLine(displayHtml);
 
             //RETURN AS HTML
@@ -460,6 +422,152 @@
             };
         }
 
+
+        /// /Umbraco/backoffice/Api/MigrationHelperApi/TransferPropertyToProperty
+        [HttpPost]
+        public HttpResponseMessage TransferPropertyToProperty(FormInputsPropertyToProperty FormInputs)
+        {
+            var returnSB = new StringBuilder();
+            var returnStatusMsg = new StatusMessage(true); //assume success
+            var pvPath = $"{_Config.GetViewsPath()}TransferPropertyToProperty.cshtml";
+
+            //Setup
+            var ms = new MigrationHelperService();
+
+            //GET DATA TO DISPLAY
+            IContentType selDocType = null;
+            IMediaType selMediaType = null;
+            IEnumerable<IContent> affectedContentNodes = new List<IContent>();
+            IEnumerable<IMedia> affectedMediaNodes = new List<IMedia>();
+            var specialMessage = "";
+            var specialMsgClass = "bg-info text-white";
+
+            var resultSet = new PropToPropResultsSet();
+
+            if (FormInputs != null)
+            {
+                if (string.IsNullOrEmpty(FormInputs.PropertyAliasFrom) || string.IsNullOrEmpty(FormInputs.PropertyAliasTo))
+                {
+                    specialMessage = "Both a 'From' Property and a 'To' Property are required.";
+                    specialMsgClass = "bg-danger text-white";
+                    //returnStatusMsg.Success = false;
+                    //returnStatusMsg.Message =
+                    //    $"Form Inputs data was missing - Both a 'From' Property and a 'To' Property are required.";
+                }
+                else
+                {
+                    //Update based on Node Type
+                    if (FormInputs.NodeTypes == Enums.NodeType.Content)
+                    {
+                        selDocType = Services.ContentTypeService.Get(FormInputs.TypeAlias);
+                        affectedContentNodes = ms.IdCsvToContents(FormInputs.ContentNodeIdsCsv);
+                        resultSet = ms.ProcessPropertyToProperty(FormInputs);
+
+                        if (resultSet.HasError)
+                        {
+                            specialMessage = resultSet.ErrorMessage;
+                            specialMsgClass = "bg-danger text-white";
+                        }
+                        else if (!FormInputs.PreviewOnly)
+                        {
+                            //Do Content updates
+                            foreach (var toUpdate in resultSet.Results.Where(n => n.ValidToTransfer))
+                            {
+                                var key = toUpdate.Key;
+                                toUpdate.ContentNode.SetValue(toUpdate.PropertyToAlias, toUpdate.PropertyToData);
+
+                                if (toUpdate.ContentNode.Published)
+                                {
+                                    var saveResult = Services.ContentService.SaveAndPublish(toUpdate.ContentNode);
+                                    resultSet.Results.Find(p => p.Key == key).ContentUpdated = true;
+                                    resultSet.Results.Find(p => p.Key == key).SavePublishResult = saveResult;
+                                }
+                                else
+                                {
+                                    var saveResult = Services.ContentService.Save(toUpdate.ContentNode);
+                                    resultSet.Results.Find(p => p.Key == key).ContentUpdated = true;
+                                    resultSet.Results.Find(p => p.Key == key).SaveOnlyResult = saveResult;
+                                }
+                            }
+
+                            resultSet.DataUpdatedAndSaved = true;
+                        }
+                    }
+                    else if (FormInputs.NodeTypes == Enums.NodeType.Media)
+                    {
+                        selMediaType = Services.MediaTypeService.Get(FormInputs.TypeAlias);
+                        affectedMediaNodes = ms.IdCsvToMedias(FormInputs.ContentNodeIdsCsv);
+                        resultSet = ms.ProcessPropertyToProperty(FormInputs);
+
+                        if (resultSet.HasError)
+                        {
+                            specialMessage = resultSet.ErrorMessage;
+                            specialMsgClass = "bg-danger text-white";
+                        }
+                        else if (!FormInputs.PreviewOnly)
+                        {
+                            //Do Media updates
+                            foreach (var toUpdate in resultSet.Results.Where(n => n.ValidToTransfer))
+                            {
+                                var key = toUpdate.Key;
+                                toUpdate.MediaNode.SetValue(toUpdate.PropertyToAlias, toUpdate.PropertyToData);
+
+                                var saveResult = Services.MediaService.Save(toUpdate.MediaNode);
+                                resultSet.Results.Find(p => p.Key == key).ContentUpdated = true;
+                                resultSet.Results.Find(p => p.Key == key).SaveOnlyResult = saveResult.Result;
+                            }
+
+                            resultSet.DataUpdatedAndSaved = true;
+                        }
+                    }
+                }
+            }
+            else
+            {
+                returnStatusMsg.Success = false;
+                returnStatusMsg.Message = $"Form Inputs data was missing.";
+            }
+
+            //VIEW DATA 
+            var viewData = new ViewDataDictionary();
+            viewData.Model = returnStatusMsg;
+            viewData.Add("SpecialMessage", specialMessage);
+            viewData.Add("SpecialMessageClass", specialMsgClass);
+
+            //viewData.Add("AvailableProperties", availableProperties);
+            viewData.Add("FormInputs", FormInputs);
+            viewData.Add("Results", resultSet);
+
+            if (FormInputs.NodeTypes == Enums.NodeType.Content)
+            {
+                viewData.Add("SelectedType", selDocType);
+                viewData.Add("AffectedNodes", affectedContentNodes);
+            }
+            else if (FormInputs.NodeTypes == Enums.NodeType.Media)
+            {
+                viewData.Add("SelectedType", selMediaType);
+                viewData.Add("AffectedNodes", affectedMediaNodes);
+            }
+
+            //RENDER
+            var controllerContext = this.ControllerContext;
+            var displayHtml = ApiControllerHtmlHelper.GetPartialViewHtml(controllerContext, pvPath, viewData, HttpContext.Current);
+            returnSB.AppendLine(displayHtml);
+
+            //RETURN AS HTML
+            return new HttpResponseMessage()
+            {
+                Content = new StringContent(
+            returnSB.ToString(),
+            Encoding.UTF8,
+            "text/html"
+        )
+            };
+        }
+
+        #endregion
+
+        #region FindReplace
 
         /// /Umbraco/backoffice/Api/MigrationHelperApi/SetupReplaceInData?DocTypeAlias=xx&DataTypeId=xx
         [System.Web.Http.AcceptVerbs("GET")]
@@ -795,6 +903,10 @@
             };
         }
 
+        #endregion
+
+        #region Store Legacy Data
+
         /// /Umbraco/backoffice/Api/MigrationHelperApi/SetupStoreLegacyData
         [System.Web.Http.AcceptVerbs("GET")]
         public HttpResponseMessage SetupStoreLegacyData()
@@ -967,6 +1079,110 @@
                 )
             };
         }
+
+        #endregion
+
+        #region Lookup Udi
+
+        /// /Umbraco/backoffice/Api/MigrationHelperApi/SetupLookupUdi
+        [System.Web.Http.AcceptVerbs("GET")]
+        public HttpResponseMessage SetupLookupUdi()
+        {
+            var returnSB = new StringBuilder();
+            var returnStatusMsg = new StatusMessage(true); //assume success
+            var pvPath = $"{_Config.GetViewsPath()}LookupUdi.cshtml";
+
+            //Setup
+           // var ms = new MigrationHelperService();
+
+            //GET DATA TO DISPLAY
+            
+            var formInputs = new FormInputsUdiLookup();
+            formInputs.ObjectType = Enums.UmbracoObjectType.Unknown; //default
+
+            //UPDATE STATUS MSG
+            //returnStatusMsg.Success = true;
+
+            //VIEW DATA 
+            var viewData = new ViewDataDictionary();
+            viewData.Model = returnStatusMsg;
+            viewData.Add("SpecialMessage", "");
+            viewData.Add("SpecialMessageClass", "bg-info");
+
+            viewData.Add("FormInputs", formInputs);
+            viewData.Add("FoundObject", null);
+
+            //RENDER
+            var controllerContext = this.ControllerContext;
+            var displayHtml =
+                ApiControllerHtmlHelper.GetPartialViewHtml(controllerContext, pvPath, viewData, HttpContext.Current);
+            returnSB.AppendLine(displayHtml);
+
+            //RETURN AS HTML
+            return new HttpResponseMessage()
+            {
+                Content = new StringContent(
+                    returnSB.ToString(),
+                    Encoding.UTF8,
+                    "text/html"
+                )
+            };
+        }
+
+        /// /Umbraco/backoffice/Api/MigrationHelperApi/LookupUdi
+        [HttpPost]
+        public HttpResponseMessage LookupUdi(FormInputsUdiLookup FormInputs)
+        {
+            var returnSB = new StringBuilder();
+            var returnStatusMsg = new StatusMessage(true); //assume success
+            var pvPath = $"{_Config.GetViewsPath()}LookupUdi.cshtml";
+
+            //Setup
+            var ms = new MigrationHelperService();
+
+            //GET DATA TO DISPLAY
+            var specialMessage = "";
+            var specialMsgClass = "bg-info text-white";
+
+            object foundObject = null;
+
+            if (FormInputs != null)
+            {
+              foundObject = ms.LookupUdi(FormInputs);
+            }
+            else
+            {
+                returnStatusMsg.Success = false;
+                returnStatusMsg.Message =
+                    $"Form Inputs data was missing.";
+            }
+
+            //VIEW DATA 
+            var viewData = new ViewDataDictionary();
+            viewData.Model = returnStatusMsg;
+            viewData.Add("SpecialMessage", specialMessage);
+            viewData.Add("SpecialMessageClass", specialMsgClass);
+
+            viewData.Add("FormInputs", FormInputs);
+            viewData.Add("FoundObject", null);
+
+            //RENDER
+            var controllerContext = this.ControllerContext;
+            var displayHtml = ApiControllerHtmlHelper.GetPartialViewHtml(controllerContext, pvPath, viewData, HttpContext.Current);
+            returnSB.AppendLine(displayHtml);
+
+            //RETURN AS HTML
+            return new HttpResponseMessage()
+            {
+                Content = new StringContent(
+                    returnSB.ToString(),
+                    Encoding.UTF8,
+                    "text/html"
+                )
+            };
+        }
+
+        #endregion
 
         #endregion
 

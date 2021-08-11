@@ -4,8 +4,10 @@
 @using Dragonfly.NetModels;
 @using Dragonfly.NetHelpers
 @using Newtonsoft.Json
+@using Umbraco.Core.Composing
 @using Umbraco.Core.PropertyEditors
 @using Umbraco.Web.PropertyEditors
+@using Umbraco.Core.Models
 
 @inherits UmbracoViewPage<StatusMessage>
 
@@ -15,7 +17,7 @@
     var SpecialMessage = Dragonfly.UmbracoHelpers.Mvc.GetSafeViewDataString(ViewData, "SpecialMessage");
     var SpecialMessageClass = Dragonfly.UmbracoHelpers.Mvc.GetSafeViewDataString(ViewData, "SpecialMessageClass");
     var SelectedMediaType = Dragonfly.UmbracoHelpers.Mvc.GetSafeViewData(ViewData, "SelectedMediaType") as IMediaType;
-    var AllCompositions = Dragonfly.UmbracoHelpers.Mvc.GetSafeViewData(ViewData, "AllCompositions") as IEnumerable<IContentTypeComposition>;
+    var AllCompositions = Dragonfly.UmbracoHelpers.Mvc.GetSafeViewData(ViewData, "AllCompositions") as IEnumerable<CompositionsWithTypes>;
     var RelatedProperties = Dragonfly.UmbracoHelpers.Mvc.GetSafeViewData(ViewData, "RelatedProperties") as IEnumerable<DocTypeProperty>;
     var MediaNodesOfType = Dragonfly.UmbracoHelpers.Mvc.GetSafeViewData(ViewData, "MediaNodesOfType") as IEnumerable<IMedia>;
 
@@ -24,17 +26,19 @@
     var pvFilesList = ViewHelpers.GetViewsPath() + "Partials/FilesList.cshtml";
 
     var urlBackofficeMain = string.Format("/umbraco#/settings/mediaTypes/edit/{0}", SelectedMediaType.Id);
-    var allCompIds = AllCompositions.Select(n => n.Id);
+    var allComps = AllCompositions.SelectMany(n => n.Compositions);
+    var allCompIds = allComps.Select(n => n.Id);
     var isComp = allCompIds.Contains(SelectedMediaType.Id);
+    var mediaTypesUsingComp = AllCompositions.Where(n => n.Compositions.Any(c => c.Id == SelectedMediaType.Id));
 
-   // var urlPropToProp = string.Format("/Umbraco/backoffice/Api/MigrationHelperApi/TransferPropertyToPropertySetup?DocTypeId={0}", SelectedDocType.Id);
+    var urlPropToProp = string.Format("/Umbraco/backoffice/Api/MigrationHelperApi/TransferMediaPropertyToPropertySetup?MediaTypeId={0}", SelectedMediaType.Id);
 
     var ncTypes = ViewHelpers.GetNestedContentDataTypes(SelectedMediaType.Alias);
 
     //Column Widths for Cards
     var col1Class = "col-sm-3";
     var col2Class = "col-sm-9";
-    }
+}
 <!DOCTYPE html>
 <html>
 <head>
@@ -70,6 +74,10 @@
             <h5 class="card-header">@SelectedMediaType.Name (@SelectedMediaType.Alias)</h5>
             <div class="card-body">
                 <dl class="row">
+                    <dt class="@col1Class">Id / GUID</dt>
+                    <dd class="@col2Class">@SelectedMediaType.Id / @SelectedMediaType.Key</dd>
+                </dl>
+                <dl class="row">
                     <dt class="@col1Class">Is an Element Type?</dt>
                     <dd class="@col2Class">@SelectedMediaType.IsElement</dd>
                 </dl>
@@ -77,6 +85,22 @@
                     <dt class="@col1Class">Is a Composition?</dt>
                     <dd class="@col2Class">@isComp</dd>
                 </dl>
+                @if (isComp)
+                {
+                    <dl class="row">
+                        <dt class="@col1Class">Types Using this Composition</dt>
+                        <dd class="@col2Class">
+                            <ul>
+                                @foreach (var item in mediaTypesUsingComp)
+                                {
+                                    var type = Services.MediaTypeService.Get(item.ContentTypeAlias);
+                                    var url = string.Format("/Umbraco/backoffice/Api/MigrationHelperApi/StartMediaType?MediaTypeId={0}", type.Id.ToString());
+                                    <li> <a href="@url" target="_blank">@type.Name</a> (@type.Alias)</li>
+                                }
+                            </ul>
+                        </dd>
+                    </dl>
+                }
                 <dl class="row">
                     <dt class="@col1Class">Uses Compositions</dt>
                     <dd class="@col2Class">
@@ -93,6 +117,23 @@
                         }
                         else
                         {<text>None</text>}
+                    </dd>
+                </dl>
+                <dl class="row">
+                    <dt class="@col1Class">Allowed Children</dt>
+                    <dd class="@col2Class">
+                        @if (SelectedMediaType.AllowedContentTypes.Any())
+                        {
+                            <ul>
+                                @foreach (var allowedType in SelectedMediaType.AllowedContentTypes)
+                                {
+                                    <li>@allowedType.Alias</li>
+                                }
+                            </ul>
+                        }
+                        else
+                        {<text>None</text>}
+
                     </dd>
                 </dl>
                 <dl class="row">
@@ -119,15 +160,16 @@
                         <dd class="@col2Class">@JsonConvert.SerializeObject(SelectedDataType.Configuration)</dd>
                     </dl>*@
                 <a class="btn btn-sm btn-success mr-2" href="@urlBackofficeMain" target="_blank">Edit this MediaType in the Back-office</a>
-              @*  <a class="btn btn-sm btn-success mr-2" href="@urlPropToProp" target="_blank">Transfer Data between properties on this Doctype</a>*@
+                <a class="btn btn-sm btn-success mr-2" href="@urlPropToProp" target="_blank">Transfer Data between properties on this MediaType</a>
 
             </div>
 
         </div>
 
-        <h3 class="mt-2">Drill-down: Properties</h3>
+
         @if (RelatedProperties != null)
         {
+            <h3 class="mt-2">Drill-down: Properties</h3>
             var typeGroups = new GroupingCollection<DocTypeProperty>(RelatedProperties);
             typeGroups.GroupItems(n => n.DocTypeAlias);
 
@@ -138,6 +180,8 @@
                     var typeDetails = Services.MediaTypeService.Get(typeAlias);
                     //var urlReplace = string.Format("/Umbraco/backoffice/Api/MigrationHelperApi/SetupReplaceInData?DocTypeAlias={0}&DataTypeId={1}", docTypeAlias, SelectedDataType.Id);
                     var urlBackoffice = string.Format("/umbraco#/settings/mediaTypes/edit/{0}", typeDetails.Id.ToString());
+                    var propGroups = new GroupingCollection<DocTypeProperty>(type.Collection);
+                    propGroups.GroupItems(n => n.GroupName);
 
                     <li>
                         <b>@typeDetails.Name (@typeAlias)</b>
@@ -147,20 +191,78 @@
 
                         @*<p class="mt-1"><i>Properties matching DataType:</i></p>*@
                         <ul>
-                            @foreach (var prop in type.Collection.OrderBy(n => n.Property.Alias))
+                            @foreach (var propGroup in propGroups.Groups)
                             {
-                                var thisDataType = Services.DataTypeService.GetDataType(prop.Property.DataTypeId);
+                                var groupName = @propGroup.GroupName["Key"].ToString();
+
                                 <li>
-                                    @prop.Property.Name (@prop.Property.Alias)
-                                    <br />DataType: @thisDataType.Name
-                                    <br />
-                                    <!-- <a class="btn btn-sm btn-success mr-2 btn-disabled" href="#">Fix Data in this Property</a>-->
+                                    <h5>@groupName</h5>
+                                    <table class="table table-hover table-condensed">
+
+                                        @foreach (var prop in propGroup.Collection.OrderBy(n => n.Property.Alias))
+                                        {
+                                            var thisDataType = Services.DataTypeService.GetDataType(prop.Property.DataTypeId);
+                                            var urlReplace = string.Format("/Umbraco/backoffice/Api/MigrationHelperApi/SetupReplaceInData?MediaTypeAlias={0}&PropertyAlias={1}", typeAlias, prop.Property.Alias);
+                                            var urlReplaceAll = string.Format("/Umbraco/backoffice/Api/MigrationHelperApi/SetupReplaceInData?PropertyAlias={0}", prop.Property.Alias);
+
+                                            <tr>
+                                                <td>
+                                                    <b>@prop.Property.Name</b> (@prop.Property.Alias)
+                                                    @if (prop.CompositionDocTypeAlias != "")
+                                                    {
+                                                        <span class="badge badge-secondary">@prop.CompositionDocTypeAlias</span>
+                                                    }
+                                                </td>
+                                                <td>
+                                                    DataType: @thisDataType.Name
+                                                </td>
+                                                @*  <td>
+                                                        <a class="btn btn-sm btn-success mr-2 mb-1" href="@urlReplace" target="_blank">Fix Data in this MediaType/Property</a>
+                                                        <a class="btn btn-sm btn-success mr-2" href="@urlReplaceAll" target="_blank">Fix Data in this Property across MediaTypes</a>
+                                                    </td>*@
+                                            </tr>
+                                        }
+                                    </table>
+
                                 </li>
                             }
                         </ul>
                     </li>
                 }
             </ul>
+        }
+
+        @if (MediaNodesOfType.Any())
+        {
+            <h3 class="mt-2">Media Nodes</h3>
+            var counter = 0;
+            <table id="umbracodata" class="table table-striped table-bordered table-hover table-sm" cellspacing="0" style="max-width: 1600px !important;">
+                <thead>
+                    <tr>
+                        <th>#</th>
+                        <th>Node Id</th>
+                        <th>Node Name</th>
+                        <th>File</th>
+                        @*<th>Template</th>*@
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var node in MediaNodesOfType.ToList())
+                    {
+                        counter++;
+
+                        var urlBackoffice = string.Format("/umbraco/#/media/media/edit/{0}", node.Id.ToString());
+
+                        <tr>
+                            <td>@counter</td>
+                            <td><a href="@urlBackoffice" target="_blank">@node.Id</a></td>
+                            <td>@node.Name</td>
+                            <td>@node.GetUrl("umbracoFile", Current.Logger)</td>
+                            @*<td>@templateInfo</td>*@
+                        </tr>
+                    }
+                </tbody>
+            </table>
         }
 
         @*<div class="d-inline-flex p-2" style="padding: .5em 0;">
@@ -173,7 +275,35 @@
 
     </div>
 
-    @*@Html.Partial(pvSS, "scripts")*@
+    @Html.Partial(pvSS, "scripts")
+
+    <script type="text/javascript">
+        $(document).ready(function () {
+
+            // Setup - add a text input to each footer cell
+            $('#umbracodata tfoot th').each(function () {
+                var title = $(this).text();
+                $(this).html('<input type="text" placeholder="Search ' + title + '" />');
+            });
+
+            $('#umbracodata').DataTable({
+                "lengthMenu": [[10, 25, 50, - 1], [10, 25, 50, "All"]]
+            });
+
+            // Apply the search
+            table.columns().every(function () {
+                var that = this;
+
+                $('input', this.footer()).on('keyup change', function () {
+                    if (that.search() !== this.value) {
+                        that
+                            .search(this.value)
+                            .draw();
+                    }
+                });
+            });
+        });
+    </script>
 </body>
 </html>
 

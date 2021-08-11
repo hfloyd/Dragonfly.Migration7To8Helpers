@@ -11,7 +11,8 @@
         public Enums.PropToPropType PropToPropTypeOption { get; set; }
         public string CustomMigrationClass { get; set; }
         public string AvailablePropertiesCSV { get; set; }
-        public string DocTypeAlias { get; set; }
+        public Enums.NodeType NodeTypes { get; set; }
+        public string TypeAlias { get; set; }
         public string ContentNodeIdsCsv { get; set; }
         public string PropertyAliasFrom { get; set; }
         public string PropertyAliasTo { get; set; }

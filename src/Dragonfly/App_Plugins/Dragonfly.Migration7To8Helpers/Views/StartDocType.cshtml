@@ -31,7 +31,7 @@
     var isComp = allCompIds.Contains(SelectedDocType.Id);
     var docTypesUsingComp = AllCompositions.Where(n => n.Compositions.Any(c => c.Id == SelectedDocType.Id));
 
-    var urlPropToProp = string.Format("/Umbraco/backoffice/Api/MigrationHelperApi/TransferPropertyToPropertySetup?DocTypeId={0}", SelectedDocType.Id);
+    var urlPropToProp = string.Format("/Umbraco/backoffice/Api/MigrationHelperApi/TransferContentPropertyToPropertySetup?DocTypeId={0}", SelectedDocType.Id);
 
     var ncTypes = ViewHelpers.GetNestedContentDataTypes(SelectedDocType.Alias);
 

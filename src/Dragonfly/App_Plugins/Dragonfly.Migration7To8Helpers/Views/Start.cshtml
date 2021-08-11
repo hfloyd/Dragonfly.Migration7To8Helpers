@@ -49,14 +49,15 @@
             }
 
         }
-        <ul>
-            <li><a href="#PropEditors">Edit Data By Property Type</a></li>
-            <li><a href="#DataTypes">Edit Data By DataType</a></li>
-            <li><a href="#DocTypes">Edit Data By DocType</a></li>
-            <li><a href="#MediaTypes">Edit Data By MediaType</a></li>
-            <li><a href="#LegacyData">Store Legacy Data for all Node Types</a></li>
-        </ul>
-
+    <ul>
+        <li><a href="#PropEditors">Edit Data By Property Type</a></li>
+        <li><a href="#DataTypes">Edit Data By DataType</a></li>
+        <li><a href="#DocTypes">Edit Data By DocType</a></li>
+        <li><a href="#MediaTypes">Edit Data By MediaType</a></li>
+        <li><a href="#LegacyData">Store Legacy Data for all Node Types</a></li>
+        <li><a href="/Umbraco/backoffice/Api/MigrationHelperApi/SetupLookupUdi" target="_blank">Lookup a UDI or GUID</a></li>
+    </ul>
+        
         @if (AllPropertyEditorTypes != null)
         {
             <h3 id="PropEditors">Edit Data By Property Type</h3>
@@ -204,6 +205,11 @@
         <div class="d-inline-flex p-2" style="padding: .5em 0;">
             <a class="btn btn-sm btn-success mr-2" href="/Umbraco/backoffice/Api/MigrationHelperApi/SetupStoreLegacyData">Store Legacy Data</a>
         </div>
+        
+        
+        
+        
+
         @* <div class="d-inline-flex p-2" style="padding: .5em 0;">
             <a class="btn btn-sm btn-success mr-2" href="/Umbraco/backoffice/Api/xx/TestDescendantNodesAndSave?StartNode=0">Test Subset of Nodes...</a>
         </div>*@
