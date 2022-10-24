@@ -16,7 +16,7 @@
     // var SelectedDocType = Dragonfly.UmbracoHelpers.Mvc.GetSafeViewData(ViewData, "SelectedDocType") as IContentType;
     var FormInputs = Dragonfly.UmbracoHelpers.Mvc.GetSafeViewData(ViewData, "FormInputs") as FormInputsUdiLookup;
     //  var AffectedContentNodesIenum = Dragonfly.UmbracoHelpers.Mvc.GetSafeViewData(ViewData, "AffectedContentNodes") as IEnumerable<IContent>;
-    var FoundObject = Dragonfly.UmbracoHelpers.Mvc.GetSafeViewData(ViewData, "FoundObject") ;
+    var LookupResult = Dragonfly.UmbracoHelpers.Mvc.GetSafeViewData(ViewData, "LookupResult") as UdiLookupResult;
 
     // var AffectedContentNodes = AffectedContentNodesIenum.ToList();
 
@@ -34,7 +34,7 @@
     //var pvFormReplaceWithUdis = ViewHelpers.GetViewsPath() + "Partials/FormReplaceWithUdis.cshtml";
 
     var mode = "Setup";
-    if (FoundObject!=null)
+    if (LookupResult != null)
     {
         mode = "Display";
     }
@@ -71,40 +71,95 @@
         }
 
         <h2>Udi Lookup</h2>
-        @*     <p>This is most useful when you have an old-format data property and a new (empty) new format data property and need to copy current data to the new property.</p>*@
+
         <div class="card card-default">
             <h5 class="card-header">Criteria</h5>
             <div class="card-body">
-                @*<dl class="row">
-            <dt class="@col1Class">Document Type</dt>
-            <dd class="@col2Class">@SelectedDocType.Name (@SelectedDocType.Alias)</dd>
-        </dl>*@
+                <dl class="row">
+                    <dt class="@col1Class">Udi | Guid</dt>
+                    <dd class="@col2Class">
+                        @if (LookupResult != null)
+                        {
+                            <span>@LookupResult.LookupCriteria.Udi | @LookupResult.LookupCriteria.Guid</span>
+                        }
+                        else
+                        {
+                            <span>@FormInputs.Udi | @FormInputs.Guid</span>
+                        }
+                    </dd>
+                </dl>
                 <dl class="row">
                     <dt class="@col1Class">Object Type</dt>
-                    <dd class="@col2Class">@FormInputs.ObjectType</dd>
-                </dl>
-                <dl class="row">
-                    <dt class="@col1Class">Udi / Guid</dt>
-                    <dd class="@col2Class">@FormInputs.Udi / @FormInputs.Guid</dd>
-                </dl>
-                @*<dl class="row">
-            <dt class="@col1Class">Overwrite Existing Data?</dt>
-            <dd class="@col2Class">@FormInputs.OverwriteExistingData</dd>
-        </dl>
-        <dl class="row">
-            <dt class="@col1Class">Number of Content Nodes</dt>
-            <dd class="@col2Class">@AffectedContentNodes.Count()</dd>
-        </dl>*@
+                    <dd class="@col2Class">
+                        @if (LookupResult != null)
+                        {
+                            <span>@LookupResult.LookupCriteria.ObjectType</span>
+                        }
+                        else
+                        {
+                            <span>@FormInputs.ObjectType</span>
+                        }
 
+                    </dd>
+                </dl>
             </div>
         </div>
 
-        @if (mode != "Setup" && FoundObject!=null)
+        @if (mode != "Setup")
         {
-            <h3>Object Found</h3>
-           
-            <p>DATA HERE</p>
+            <h5>Lookup Result</h5>
 
+            if (LookupResult != null)
+            {
+                switch (LookupResult.Status)
+                {
+                    case Enums.LookupStatus.NotSearchedYet:
+                        <div class="alert alert-info" role="alert">
+                            Not yet searched
+                        </div>
+                        break;
+
+                    case Enums.LookupStatus.SearchInProgress:
+                        <div class="alert alert-info" role="alert">
+                            Search in Progress...
+                        </div>
+                        break;
+
+                    case Enums.LookupStatus.ObjectFound:
+                        <div class="alert alert-success" role="alert">
+                            <strong> @LookupResult.ObjectTypeDisplayName</strong> : <span> @LookupResult.Name - # @LookupResult.Id</span>
+                        </div>
+                        break;
+
+                    case Enums.LookupStatus.ObjectNotFound:
+                        <div class="alert alert-warning" role="alert">
+                            <strong>No matching object found of type @LookupResult.ObjectTypeDisplayName with GUID @LookupResult.Guid.ToString()</strong>
+                        </div>
+                        break;
+
+                    case Enums.LookupStatus.Error:
+                        <div class="alert alert-danger" role="alert">
+                            <strong>Error</strong> : <span>@LookupResult.ErrorMsg</span>
+                        </div>
+                        break;
+
+                    case Enums.LookupStatus.ObjectTypeNotSupported:
+                        <div class="alert alert-warning" role="alert">
+                            <strong>@Html.Raw(LookupResult.ErrorMsg)</strong>
+                        </div>
+                        break;
+
+                    default:
+                        throw new ArgumentOutOfRangeException();
+                }
+
+            }
+            else
+            {
+                <div class="alert alert-danger" role="alert">
+                    Something went wrong - Lookup Result is missing data
+                </div>
+            }
         }
 
         @Html.Partial(pvForm, FormInputs)
@@ -114,32 +169,32 @@
     @Html.Partial(pvSS, "scripts")
 
     @*<script type="text/javascript">
-        $(document).ready(function () {
+            $(document).ready(function () {
 
-            // Setup - add a text input to each footer cell
-            $('#umbracodata tfoot th').each(function () {
-                var title = $(this).text();
-                $(this).html('<input type="text" placeholder="Search ' + title + '" />');
-            });
-
-            $('#umbracodata').DataTable({
-                "lengthMenu": [[10, 25, 50, - 1], [10, 25, 50, "All"]]
-            });
-
-            // Apply the search
-            table.columns().every(function () {
-                var that = this;
-
-                $('input', this.footer()).on('keyup change', function () {
-                    if (that.search() !== this.value) {
-                        that
-                            .search(this.value)
-                            .draw();
-                    }
+                // Setup - add a text input to each footer cell
+                $('#umbracodata tfoot th').each(function () {
+                    var title = $(this).text();
+                    $(this).html('<input type="text" placeholder="Search ' + title + '" />');
                 });
-            });
 
-        });
-    </script>*@
+                $('#umbracodata').DataTable({
+                    "lengthMenu": [[10, 25, 50, - 1], [10, 25, 50, "All"]]
+                });
+
+                // Apply the search
+                table.columns().every(function () {
+                    var that = this;
+
+                    $('input', this.footer()).on('keyup change', function () {
+                        if (that.search() !== this.value) {
+                            that
+                                .search(this.value)
+                                .draw();
+                        }
+                    });
+                });
+
+            });
+        </script>*@
 </body>
 </html>

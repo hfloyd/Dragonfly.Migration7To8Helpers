@@ -29,6 +29,8 @@ http://YOURSITE.COM/Umbraco/backoffice/Api/MigrationHelperApi/Start
 
 You can view lists of Doctypes, DataTypes, and PropertyEditors, and see what other items are referencing them. Drill-down and view raw property data.
 
+Additionally, there is a UDI / GUID Lookup tool, which can be helpful when Umbraco Deploy says "There's an issue with artifact umb://document/3872fd27c0554761bc7e7d6e7e6ba146" and you'd like to know what Content node that is.
+
 ## Data Conversion Tools ##
 
 ### Find/Replace in PropertyData ###

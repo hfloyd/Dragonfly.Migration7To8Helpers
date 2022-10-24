@@ -11,11 +11,14 @@
     using Umbraco.Core.Composing.CompositionExtensions;
     using Umbraco.Core.Models;
     using Umbraco.Core.Services;
+    using Umbraco.Forms.Core.Services;
     using Umbraco.Web.Composing;
 
     public static class ViewHelpers
     {
+   
         private static ServiceContext _services = Current.Services;
+        
         public static string GetViewsPath()
         {
             var path = Config.GetConfig().GetViewsPath();
@@ -56,10 +59,18 @@
             var folderIds = DataType.Path.Split(',');
             foreach (var id in folderIds)
             {
-                var folderId = Convert.ToInt32(id);
-                var folderContainer = _services.DataTypeService.GetContainer(folderId);
-                var folderName = folderContainer != null ? folderContainer.Name : RootFolderName;
-                folderNames.Add(folderName);
+                int folderId;
+                var isInt =Int32.TryParse(id, out folderId);
+                if (isInt)
+                {
+                    var folderContainer = _services.DataTypeService.GetContainer(folderId);
+                    var folderName = folderContainer != null ? folderContainer.Name : RootFolderName;
+                    folderNames.Add(folderName);
+                }
+                else
+                {
+                    folderNames.Add("UnknownFolder");
+                }
             }
 
             return string.Join(PathDelim, folderNames);

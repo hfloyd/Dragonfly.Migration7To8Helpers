@@ -8,6 +8,7 @@
     using System.Collections;
     using System.Text.RegularExpressions;
     using Dragonfly.Migration7To8Helpers.Models;
+    using Dragonfly.UmbracoHelpers;
     using Newtonsoft.Json;
     using Umbraco.Core;
     using Umbraco.Core.Cache;
@@ -15,6 +16,7 @@
     using Umbraco.Core.Models;
     using Umbraco.Core.PropertyEditors;
     using Umbraco.Core.Services;
+    using Umbraco.Forms.Core.Services;
     using Umbraco.Web;
     using Umbraco.Web.Composing;
     using Umbraco.Web.PropertyEditors;
@@ -27,7 +29,8 @@
         private readonly UmbracoHelper _umbracoHelper;
         private readonly ServiceContext _services;
         private readonly IPublishedContentQuery _publishedContentQuery;
-        
+        //private readonly Umbraco.Forms.Core.Services.IFormService _formService;
+
 
         private Config _config;
 
@@ -188,6 +191,7 @@
             this._umbracoContext = Current.UmbracoContext;
             this._umbracoHelper = Current.UmbracoHelper;
             this._services = Current.Services;
+          //  this._formService = formService;
             //this._publishedContentQuery = publishedContentQuery;
 
             //Config Data
@@ -1481,9 +1485,151 @@
 
         #region Process Data - Lookup Udi
 
-        public object LookupUdi(FormInputsUdiLookup FormInputs)
+        public UdiLookupResult LookupUdi(FormInputsUdiLookup FormInputs)
         {
-            return null;
+            var result = new UdiLookupResult(Enums.LookupStatus.SearchInProgress);
+            result.LookupCriteria = FormInputs;
+
+            var types = Enums.UmbracoObjectTypesWithDisplayText();
+
+            if (!string.IsNullOrEmpty(FormInputs.Udi))
+            {
+                //Lookup type from UDI string
+                result.Udi = FormInputs.Udi;
+              
+                var udiSplit = FormInputs.Udi.Replace("umb://", "").TrimEnd('/').Split('/');
+                var udiType = udiSplit[0];
+                var udiGuid =  Guid.ParseExact(udiSplit[1], "N"); 
+                result.Guid = udiGuid;
+                result.LookupCriteria.Guid = udiGuid.ToString();
+
+                var matchingType = Enums.ConvertStringToUmbracoObjectType(udiType);
+                result.ObjectType = matchingType;
+                result.ObjectTypeDisplayName = types[matchingType];
+                result.LookupCriteria.ObjectType = matchingType;
+
+                if (matchingType == Enums.UmbracoObjectType.Unknown)
+                {
+                    //No type found 
+                    result.Status = Enums.LookupStatus.Error;
+                    result.ErrorMsg = $"No Umbraco Object Type found for '{udiType}'";
+                }
+            }
+            else
+            {
+                //Use provided info
+                result.ObjectType = FormInputs.ObjectType;
+                result.ObjectTypeDisplayName = types[FormInputs.ObjectType];
+                result.Guid = Guid.ParseExact(FormInputs.Guid, "N");
+            }
+
+            //Lookup object using Type and Guid
+            if (result.Guid != null)
+            {
+                switch (result.ObjectType)
+                {
+                    case Enums.UmbracoObjectType.Content:
+                        var content = _services.ContentService.GetById(result.Guid);
+                        if (content != null)
+                        {
+                            result.Status = Enums.LookupStatus.ObjectFound;
+                            result.Id = content.Id;
+                            result.Name = content.Name;
+                        }
+                        else
+                        {
+                            result.Status = Enums.LookupStatus.ObjectNotFound;
+                        }
+                        break;
+
+                    case Enums.UmbracoObjectType.Media:
+                      var media=  _services.MediaService.GetById(result.Guid);
+                        if (media != null)
+                        {
+                            result.Status = Enums.LookupStatus.ObjectFound;
+                            result.Id = media.Id;
+                            result.Name = media.Name;
+                        }
+                        else
+                        {
+                            result.Status = Enums.LookupStatus.ObjectNotFound;
+                        }
+                        break;
+
+                    case Enums.UmbracoObjectType.UmbracoForm:
+                        //var form = _formService.Get(result.Guid);
+                        //if (form != null)
+                        //{
+                        //    result.Status = Enums.LookupStatus.ObjectFound;
+                        //    //result.Id = form.Id;
+                        //    result.Name = form.Name;
+                        //}
+                        //else
+                        //{
+                            result.Status = Enums.LookupStatus.ObjectTypeNotSupported;
+                        result.ErrorMsg =
+                            $"Forms are not supported for lookup operations. Use the <a href=\"/umbraco/#/forms/form/edit/{result.Guid}\" target=\"_blank\">back-office section</a> ";
+                       // }
+                        break;
+
+                    case Enums.UmbracoObjectType.ContentType:
+                      var contentType=  _services.ContentTypeService.Get(result.Guid);
+                        if (contentType != null)
+                        {
+                            result.Status = Enums.LookupStatus.ObjectFound;
+                            result.Id = contentType.Id;
+                            result.Name = contentType.Name;
+                        }
+                        else
+                        {
+                            result.Status = Enums.LookupStatus.ObjectNotFound;
+                        }
+                        break;
+
+                    case Enums.UmbracoObjectType.MediaType:
+                     var mediaType=   _services.MediaTypeService.Get(result.Guid);
+                        if (mediaType != null)
+                        {
+                            result.Status = Enums.LookupStatus.ObjectFound;
+                            result.Id = mediaType.Id;
+                            result.Name = mediaType.Name;
+                        }
+                        else
+                        {
+                            result.Status = Enums.LookupStatus.ObjectNotFound;
+                        }
+                        break;
+
+                    case Enums.UmbracoObjectType.DataType:
+                     var datatype=   _services.DataTypeService.GetDataType(result.Guid);
+                        if (datatype != null)
+                        {
+                            result.Status = Enums.LookupStatus.ObjectFound;
+                            result.Id = datatype.Id;
+                            result.Name = datatype.Name;
+                        }
+                        else
+                        {
+                            result.Status = Enums.LookupStatus.ObjectNotFound;
+                        }
+                        break;
+
+                    case Enums.UmbracoObjectType.Unknown:
+                        //Ignore lookup
+                        break;
+
+                    default:
+                        throw new ArgumentOutOfRangeException();
+                }
+            }
+            else
+            {
+                //No valid GUID
+                result.Status = Enums.LookupStatus.Error;
+                result.ErrorMsg = $"No valid GUID provided.";
+            }
+
+            return result;
         }
 
         #endregion

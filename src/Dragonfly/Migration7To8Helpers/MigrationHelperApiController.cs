@@ -12,9 +12,12 @@
     using Dragonfly.NetModels;
     using Dragonfly.UmbracoHelpers;
     using Newtonsoft.Json;
+    using Serilog;
     using Umbraco.Core.Migrations.Expressions.Update;
     using Umbraco.Core.Models;
     using Umbraco.Core.PropertyEditors;
+    using Umbraco.Core.Services;
+    using Umbraco.Web.Composing;
     using Umbraco.Web.WebApi;
 
     // [IsBackOffice]
@@ -299,7 +302,7 @@
 
         #endregion
 
-        
+
         #region Data-Editing Pages
 
         #region Prop-to-Prop
@@ -1019,15 +1022,46 @@
 
                             if (toUpdate.ContentNode.Published)
                             {
-                                var saveResult = Services.ContentService.SaveAndPublish(toUpdate.ContentNode);
-                                resultSet.Results.Find(p => p.Key == key).ContentUpdated = true;
-                                resultSet.Results.Find(p => p.Key == key).SavePublishResult = saveResult;
+                                //try Save & Publish
+                                try
+                                {
+                                    var saveResult = Services.ContentService.SaveAndPublish(toUpdate.ContentNode);
+                                    resultSet.Results.Find(p => p.Key == key).ContentUpdated = true;
+                                    resultSet.Results.Find(p => p.Key == key).SavePublishResult = saveResult;
+                                }
+                                catch (Exception exSavePub)
+                                {
+                                    Current.Logger.Warn(typeof(MigrationHelperApiController), exSavePub, "DoStoreLegacyData: Unable to Save & Publish content node #{0} - Attempting Save Only...", toUpdate.ContentNode.Id);
+                                    //Try just saving
+                                    try
+                                    {
+                                        var saveResult = Services.ContentService.Save(toUpdate.ContentNode);
+                                        resultSet.Results.Find(p => p.Key == key).ContentUpdated = true;
+                                        resultSet.Results.Find(p => p.Key == key).SaveOnlyResult = saveResult;
+                                    }
+                                    catch (Exception exSave)
+                                    {
+                                        Current.Logger.Error(typeof(MigrationHelperApiController), exSave, "DoStoreLegacyData: Unable to Save content node #{0} - FAILURE: {1}", toUpdate.ContentNode.Id, exSave);
+                                        resultSet.Results.Find(p => p.Key == key).ContentUpdated = false;
+                                        resultSet.Results.Find(p => p.Key == key).SaveOnlyResult = null;
+                                    }
+                                }
                             }
                             else
                             {
-                                var saveResult = Services.ContentService.Save(toUpdate.ContentNode);
-                                resultSet.Results.Find(p => p.Key == key).ContentUpdated = true;
-                                resultSet.Results.Find(p => p.Key == key).SaveOnlyResult = saveResult;
+                                //Try just saving
+                                try
+                                {
+                                    var saveResult = Services.ContentService.Save(toUpdate.ContentNode);
+                                    resultSet.Results.Find(p => p.Key == key).ContentUpdated = true;
+                                    resultSet.Results.Find(p => p.Key == key).SaveOnlyResult = saveResult;
+                                }
+                                catch (Exception exSave)
+                                {
+                                    Current.Logger.Error(typeof(MigrationHelperApiController), exSave, "DoStoreLegacyData: Unable to Save content node #{0} - FAILURE: {1}", toUpdate.ContentNode.Id, exSave);
+                                    resultSet.Results.Find(p => p.Key == key).ContentUpdated = false;
+                                    resultSet.Results.Find(p => p.Key == key).SaveOnlyResult = null;
+                                }
                             }
                         }
 
@@ -1037,8 +1071,16 @@
                             var key = toUpdate.Key;
                             toUpdate.MediaNode.SetValue(toUpdate.IdPropertyAlias, toUpdate.IdData);
 
-                            Services.MediaService.Save(toUpdate.MediaNode);
-                            resultSet.Results.Find(p => p.Key == key).NodeUpdated = true;
+                            try
+                            {
+                                Services.MediaService.Save(toUpdate.MediaNode);
+                                resultSet.Results.Find(p => p.Key == key).NodeUpdated = true;
+                            }
+                            catch (Exception exMediaSave)
+                            {
+                                Current.Logger.Error(typeof(MigrationHelperApiController), "DoStoreLegacyData: Unable to Save media node #{0} - FAILURE: {1}", toUpdate.MediaNode.Id, exMediaSave);
+                                resultSet.Results.Find(p => p.Key == key).NodeUpdated = false;
+                            }
                         }
 
                         resultSet.DataUpdatedAndSaved = true;
@@ -1093,10 +1135,10 @@
             var pvPath = $"{_Config.GetViewsPath()}LookupUdi.cshtml";
 
             //Setup
-           // var ms = new MigrationHelperService();
+            // var ms = new MigrationHelperService();
 
             //GET DATA TO DISPLAY
-            
+
             var formInputs = new FormInputsUdiLookup();
             formInputs.ObjectType = Enums.UmbracoObjectType.Unknown; //default
 
@@ -1110,7 +1152,7 @@
             viewData.Add("SpecialMessageClass", "bg-info");
 
             viewData.Add("FormInputs", formInputs);
-            viewData.Add("FoundObject", null);
+            viewData.Add("LookupResult",  new UdiLookupResult(Enums.LookupStatus.NotSearchedYet));
 
             //RENDER
             var controllerContext = this.ControllerContext;
@@ -1144,11 +1186,11 @@
             var specialMessage = "";
             var specialMsgClass = "bg-info text-white";
 
-            object foundObject = null;
+            UdiLookupResult lookupResult = new UdiLookupResult(Enums.LookupStatus.NotSearchedYet);
 
             if (FormInputs != null)
             {
-              foundObject = ms.LookupUdi(FormInputs);
+                lookupResult = ms.LookupUdi(FormInputs);
             }
             else
             {
@@ -1164,7 +1206,7 @@
             viewData.Add("SpecialMessageClass", specialMsgClass);
 
             viewData.Add("FormInputs", FormInputs);
-            viewData.Add("FoundObject", null);
+            viewData.Add("LookupResult", lookupResult);
 
             //RENDER
             var controllerContext = this.ControllerContext;

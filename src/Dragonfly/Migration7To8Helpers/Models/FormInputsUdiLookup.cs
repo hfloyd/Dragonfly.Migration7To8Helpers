@@ -19,26 +19,33 @@ namespace Dragonfly.Migration7To8Helpers.Models
             ContentType,
             MediaType,
             DataType,
-            Unknown
+            Unknown,
+            UmbracoForm
         }
 
-        public static UmbracoObjectType GetUmbracoObjectType(string TypeString)
+        public static UmbracoObjectType ConvertStringToUmbracoObjectType(string TypeString)
         {
-            switch (TypeString)
+            switch (TypeString.ToLower())
             {
-                case "Content":
+                case "content":
                     return UmbracoObjectType.Content;
 
-                case "Media":
+                case "document":
+                    return UmbracoObjectType.Content;
+
+                case "media":
                     return UmbracoObjectType.Media;
 
-                case "ContentType":
+                case "forms-form":
+                    return UmbracoObjectType.UmbracoForm;
+
+                case "Contenttype":
                     return UmbracoObjectType.ContentType;
 
-                case "MediaType":
+                case "mediatype":
                     return UmbracoObjectType.MediaType;
 
-                case "DataType":
+                case "datatype":
                     return UmbracoObjectType.DataType;
 
                 default:
@@ -52,12 +59,16 @@ namespace Dragonfly.Migration7To8Helpers.Models
 
             dict.Add(UmbracoObjectType.Content, "Content Node");
             dict.Add(UmbracoObjectType.Media, "Media Node");
+            dict.Add(UmbracoObjectType.UmbracoForm, "Umbraco Form");
+
             dict.Add(UmbracoObjectType.ContentType, "Content Type");
             dict.Add(UmbracoObjectType.MediaType, "Media Type");
             dict.Add(UmbracoObjectType.DataType, "DataType");
             dict.Add(UmbracoObjectType.Unknown, "Unknown");
             return dict;
         }
+
+
 
         public static IEnumerable<SelectListItem> UmbracoObjectTypesSelectList()
         {

@@ -86,14 +86,14 @@
                     <dl class="row">
                         <dt class="@col1Class">DocTypes Using this Composition</dt>
                         <dd class="@col2Class">
-                            <ul>
+                            <ol>
                                 @foreach (var item in docTypesUsingComp)
                                 {
                                     var docType = Services.ContentTypeService.Get(item.ContentTypeAlias);
                                     var url = string.Format("/Umbraco/backoffice/Api/MigrationHelperApi/StartDocType?DocTypeId={0}", docType.Id.ToString());
                                     <li> <a href="@url" target="_blank">@docType.Name</a> (@docType.Alias)</li>
                                 }
-                            </ul>
+                            </ol>
                         </dd>
                     </dl>
                 }
@@ -103,13 +103,13 @@
                         @{ var comps = SelectedDocType.ContentTypeComposition; }
                         @if (comps.Any())
                         {
-                            <ul>
+                            <ol>
                                 @foreach (var comp in comps)
                                 {
                                     var url = string.Format("/Umbraco/backoffice/Api/MigrationHelperApi/StartDocType?DocTypeId={0}", comp.Id.ToString());
                                     <li><a href="@url" target="_blank">@comp.Name (@comp.Alias)</a></li>
                                 }
-                            </ul>
+                            </ol>
                         }
                         else
                         {<text>None</text>}
@@ -120,12 +120,12 @@
                     <dd class="@col2Class">
                         @if (SelectedDocType.AllowedContentTypes.Any())
                         {
-                        <ul>
+                        <ol>
                             @foreach (var allowedType in SelectedDocType.AllowedContentTypes)
                             {
                                 <li>@allowedType.Alias</li>
                             }
-                        </ul>
+                        </ol>
                         }
                         else
                         {<text>None</text>}
